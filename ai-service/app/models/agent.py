@@ -29,6 +29,7 @@ class ToolCallTrace(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
     document_ids: list[str] = Field(default_factory=list)
+    workspace_id: str | None = None
     conversation_id: str | None = None
     max_steps: int = Field(default=5, ge=1, le=20)
 

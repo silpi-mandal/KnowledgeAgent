@@ -8,10 +8,12 @@ def save_document_metadata(
     document_id: str,
     document_name: str,
     file_type: str | None = None,
+    workspace_id: str = "general",
 ) -> None:
     metadata = {
         "document_id": document_id,
         "document_name": document_name,
+        "workspace_id": workspace_id,
     }
 
     if file_type:

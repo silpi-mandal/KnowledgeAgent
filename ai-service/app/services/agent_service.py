@@ -222,7 +222,19 @@ async def run_agent(
             tool = TOOLS_BY_NAME.get(tool_name)
             error: str | None = None
 
-            if tool is None:
+            requested_document = tool_args.get("document_id")
+
+            if (
+                requested_document
+                and requested_document not in document_ids
+            ):
+                error = (
+                    "Access denied: document is not part of the "
+                    "selected documents."
+                )
+                result = error
+
+            elif tool is None:
                 error = f"Unknown tool: {tool_name}"
                 result = error
 
@@ -237,6 +249,18 @@ async def run_agent(
                     )
                     error = str(exc)
                     result = f"Tool call failed: {exc}"
+
+            if (
+                error is None
+                and tool_name == "list_documents_tool"
+                and isinstance(result, list)
+            ):
+                result = [
+                    item
+                    for item in result
+                    if isinstance(item, dict)
+                    and item.get("document_id") in document_ids
+                ]
 
             if error is None:
                 error = extract_error(result)

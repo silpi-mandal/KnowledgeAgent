@@ -3,17 +3,16 @@ from unittest.mock import patch
 from app.services.llm_service import create_llm, generate_answer
 
 
-def test_create_llm():
-    with patch("app.services.llm_service.ChatOpenAI") as mock_llm:
-        create_llm()
+def test_create_llm_uses_configured_settings():
+    with patch("app.services.llm_service.OpenAI") as mock_sync, patch(
+        "app.services.llm_service.AsyncOpenAI"
+    ) as mock_async:
+        llm = create_llm()
 
-        mock_llm.assert_called_once()
-
-        kwargs = mock_llm.call_args.kwargs
-
-        assert "api_key" in kwargs
-        assert "model" in kwargs
-        assert "base_url" in kwargs
+        assert llm.model == "test-model"
+        assert mock_sync.call_args.kwargs["api_key"] == "test-key"
+        assert "base_url" in mock_sync.call_args.kwargs
+        assert "base_url" in mock_async.call_args.kwargs
 
 
 def test_generate_answer():

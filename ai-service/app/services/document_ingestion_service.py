@@ -22,6 +22,7 @@ def ingest_document(
     document_id: str,
     file_path: Path,
     document_name: str,
+    workspace_id: str = "general",
 ) -> None:
 
     extension = file_path.suffix.lower()
@@ -74,4 +75,5 @@ def ingest_document(
         document_id,
         document_name,
         file_type=extension.lstrip("."),
+        workspace_id=workspace_id,
     )

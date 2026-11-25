@@ -34,4 +34,4 @@ def test_extract_pdf_text():
 
     assert len(pages) == 1
     assert pages[0]["page_number"] == 1
-    assert "DocuMind AI" in pages[0]["text"]
+    assert "KnowledgeAgent" in pages[0]["text"]

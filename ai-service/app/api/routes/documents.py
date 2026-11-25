@@ -2,7 +2,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.core.config import get_settings
 from app.services.document_metadata_service import (
     list_document_metadata,
@@ -17,6 +17,12 @@ from app.services.document_ingestion_service import (
     ingest_document,
 )
 from app.services.document_storage_service import save_document
+from app.services.workspace_service import (
+    DEFAULT_WORKSPACE_ID,
+    WorkspaceNotFoundError,
+    document_workspace,
+    ensure_workspace_exists,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +62,16 @@ def remove_failed_upload(
 )
 def upload_document(
     file: UploadFile = File(...),
+    workspace_id: str = Form(DEFAULT_WORKSPACE_ID),
 ) -> DocumentResponse:
+
+    try:
+        ensure_workspace_exists(workspace_id)
+    except WorkspaceNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Workspace not found.",
+        ) from None
 
     if not file.filename:
         raise HTTPException(
@@ -82,6 +97,7 @@ def upload_document(
             document_id,
             file_path,
             file.filename,
+            workspace_id=workspace_id,
         )
     except DocumentProcessingError as exc:
         logger.warning(
@@ -110,13 +126,16 @@ def upload_document(
     return DocumentResponse(
         document_id=document_id,
         document_name=file.filename,
+        workspace_id=workspace_id,
     )
 
 @router.get(
     "",
     response_model=list[DocumentResponse],
 )
-def get_documents() -> list[DocumentResponse]:
+def get_documents(
+    workspace_id: str | None = None,
+) -> list[DocumentResponse]:
 
     settings = get_settings()
 
@@ -130,6 +149,10 @@ def get_documents() -> list[DocumentResponse]:
     )
 
     return [
-        DocumentResponse(**document)
+        DocumentResponse(
+            **{**document, "workspace_id": document_workspace(document)}
+        )
         for document in documents
+        if workspace_id is None
+        or document_workspace(document) == workspace_id
     ]

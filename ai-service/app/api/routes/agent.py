@@ -2,6 +2,11 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.agent import ChatRequest, ChatResponse, SourceRef
 from app.services.agent_service import run_agent
+from app.services.workspace_service import (
+    WorkspaceNotFoundError,
+    ensure_workspace_exists,
+    list_workspace_documents,
+)
 
 
 router = APIRouter(
@@ -44,7 +49,37 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
     history = request.messages[:last_user_index]
 
-    if not request.document_ids:
+    document_ids = list(request.document_ids)
+
+    if request.workspace_id:
+        try:
+            ensure_workspace_exists(request.workspace_id)
+        except WorkspaceNotFoundError:
+            raise HTTPException(
+                status_code=404,
+                detail="Workspace not found.",
+            ) from None
+
+        workspace_document_ids = [
+            document["document_id"]
+            for document in list_workspace_documents(request.workspace_id)
+        ]
+
+        if document_ids:
+            outside = [
+                document_id
+                for document_id in document_ids
+                if document_id not in workspace_document_ids
+            ]
+            if outside:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Some documents are not in this workspace.",
+                )
+        else:
+            document_ids = workspace_document_ids
+
+    if not document_ids:
         raise HTTPException(
             status_code=400,
             detail="At least one document_id is required.",
@@ -53,7 +88,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     try:
         result = await run_agent(
             question=question,
-            document_ids=request.document_ids,
+            document_ids=document_ids,
             max_steps=request.max_steps,
             history=history,
         )

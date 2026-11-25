@@ -261,3 +261,23 @@ Deployment, containerization, and CI/CD are Phase 11 work.
 ## 16. License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+## Workspaces (Task 3)
+
+Documents are grouped into workspaces (e.g. HR, IT, Policies). Documents uploaded before workspaces existed belong to the default `general` workspace.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /workspaces` | List workspaces with document counts |
+| `POST /workspaces` | Create `{ "name": "HR Policies" }` (id becomes `hr-policies`) |
+| `GET /workspaces/{id}/documents` | Documents in a workspace |
+| `DELETE /workspaces/{id}` | Delete an empty workspace (not `general`) |
+| `POST /documents/upload` | Optional form field `workspace_id` (default `general`) |
+| `GET /documents?workspace_id=...` | Filter documents by workspace |
+| `POST /agent/chat` | Optional `workspace_id`: searches only that workspace's documents |
+
+The agent can only touch documents selected for the chat: tool calls on any other document are denied and `list_documents_tool` results are filtered.
+
+Run tests: `cd ai-service && pip install -r requirements.txt && pytest`

@@ -6,7 +6,7 @@ from pypdf import PdfWriter
 
 from app.main import app
 from app.api.routes import documents as documents_route
-from app.services import document_storage_service
+from app.services import document_storage_service, workspace_service
 
 client = TestClient(app)
 
@@ -29,6 +29,12 @@ def configure_storage(
     )
     monkeypatch.setattr(
         document_storage_service,
+        "get_settings",
+        lambda: settings,
+    )
+
+    monkeypatch.setattr(
+        workspace_service,
         "get_settings",
         lambda: settings,
     )
@@ -88,13 +94,18 @@ def test_valid_upload_returns_document_response(
     monkeypatch.setattr(
         documents_route,
         "ingest_document",
-        lambda document_id, file_path, document_name: None,
+        lambda document_id, file_path, document_name, **kwargs: None,
     )
 
     response = upload(Path("tests/fixtures/sample.pdf"))
 
     assert response.status_code == 200
-    assert set(response.json()) == {"document_id", "document_name"}
+    assert set(response.json()) == {
+        "document_id",
+        "document_name",
+        "workspace_id",
+    }
+    assert response.json()["workspace_id"] == "general"
     assert response.json()["document_name"] == "sample.pdf"
 
     saved_documents = list(
@@ -158,6 +169,7 @@ def test_failed_ingestion_returns_500_and_cleans_up(
         document_id: str,
         file_path: Path,
         document_name: str,
+        **kwargs,
     ) -> None:
         raise RuntimeError("embedding provider exploded")
 
@@ -229,7 +241,7 @@ def test_csv_upload_keeps_original_extension(
     monkeypatch.setattr(
         documents_route,
         "ingest_document",
-        lambda document_id, file_path, document_name: None,
+        lambda document_id, file_path, document_name, **kwargs: None,
     )
 
     csv_file = tmp_path / "employees.csv"
@@ -260,7 +272,7 @@ def test_xlsx_upload_keeps_original_extension(
     monkeypatch.setattr(
         documents_route,
         "ingest_document",
-        lambda document_id, file_path, document_name: None,
+        lambda document_id, file_path, document_name, **kwargs: None,
     )
 
     workbook_file = tmp_path / "sales.xlsx"
@@ -295,6 +307,7 @@ def test_failed_csv_ingestion_cleans_up(
         document_id: str,
         file_path: Path,
         document_name: str,
+        **kwargs,
     ) -> None:
         raise RuntimeError("embedding provider exploded")
 

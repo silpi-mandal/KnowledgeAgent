@@ -216,7 +216,11 @@ def test_tool_result_is_forwarded_to_the_llm() -> None:
             )
         },
     ):
-        result = run("What documents are uploaded?", llm)
+        result = run(
+            "What documents are uploaded?",
+            llm,
+            document_ids=["d1"],
+        )
 
     assert result["answer"] == "Two documents are uploaded."
     assert result["traces"][-1]["ok"] is True
@@ -280,3 +284,51 @@ def test_traces_sources_and_no_internal_prompt_exposure() -> None:
     exported = str(result["traces"]) + str(result["answer"])
     assert "Use the following retrieved document contexts" not in exported
     assert "standalone search query" not in exported
+
+
+def test_list_documents_only_shows_selected_documents() -> None:
+    responses = [
+        tool_call("list_documents_tool", {}),
+        AIMessage(content="done"),
+    ]
+    llm, bound = make_agent(responses)
+
+    documents = [
+        {"document_id": "d1", "document_name": "hr.pdf"},
+        {"document_id": "secret", "document_name": "finance.pdf"},
+    ]
+
+    with patch(
+        "app.services.agent_service.TOOLS_BY_NAME",
+        {
+            "list_documents_tool": SimpleNamespace(
+                ainvoke=AsyncMock(return_value=documents)
+            )
+        },
+    ):
+        run("List docs", llm, document_ids=["d1"])
+
+    tool_message = [
+        m for m in bound.seen[-1] if isinstance(m, ToolMessage)
+    ][0]
+    assert "hr.pdf" in tool_message.content
+    assert "finance.pdf" not in tool_message.content
+
+
+def test_tool_call_on_unselected_document_is_denied() -> None:
+    responses = [
+        tool_call("get_document_info_tool", {"document_id": "secret"}),
+        AIMessage(content="done"),
+    ]
+    llm, bound = make_agent(responses)
+    info_tool = SimpleNamespace(ainvoke=AsyncMock(return_value={}))
+
+    with patch(
+        "app.services.agent_service.TOOLS_BY_NAME",
+        {"get_document_info_tool": info_tool},
+    ):
+        result = run("Info", llm, document_ids=["d1"])
+
+    info_tool.ainvoke.assert_not_called()
+    assert result["traces"][-1]["ok"] is False
+    assert "Access denied" in result["traces"][-1]["result_summary"]

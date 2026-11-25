@@ -182,7 +182,7 @@ def test_pdf_dispatch_keeps_existing_extraction():
 
     assert len(pages) == 1
     assert pages[0]["page_number"] == 1
-    assert "DocuMind AI" in pages[0]["text"]
+    assert "KnowledgeAgent" in pages[0]["text"]
 
 
 def test_unknown_extension_is_rejected(tmp_path):
