@@ -8,6 +8,7 @@ from langchain_core.messages import (
 )
 
 from app.models.agent import ChatMessage
+from app.services.citation_service import make_snippet
 from app.services.llm_service import create_llm
 from app.services.mcp_tools import (
     find_employee_tool,
@@ -55,10 +56,24 @@ def add_source(
         "document_name": item.get("document_name"),
         "page": item["page_number"],
         "score": item.get("score"),
+        "snippet": make_snippet(item.get("text")),
     }
 
-    if source not in sources:
-        sources.append(source)
+    for existing in sources:
+
+        if (
+            existing["document_id"] == source["document_id"]
+            and existing["page"] == source["page"]
+        ):
+            # Same page found again: keep the closest match (lowest distance).
+            old, new = existing["score"], source["score"]
+
+            if new is not None and (old is None or new < old):
+                existing.update(source)
+
+            return
+
+    sources.append(source)
 
 
 def extract_error(

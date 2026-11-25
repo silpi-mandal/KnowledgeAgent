@@ -16,7 +16,10 @@ class SourceRef(BaseModel):
     document_id: str
     document_name: str | None = None
     page: int | None = None
-    score: float | None = None
+    score: float | None = None  # raw FAISS distance (lower = closer)
+    snippet: str | None = None  # start of the retrieved passage
+    confidence: float | None = None  # retrieval relevance 0-1 (higher = closer match)
+    confidence_level: str | None = None  # high / medium / low
 
 
 class ToolCallTrace(BaseModel):
@@ -38,3 +41,6 @@ class ChatResponse(BaseModel):
     answer: str = ""
     traces: list[ToolCallTrace] = Field(default_factory=list)
     sources: list[SourceRef] = Field(default_factory=list)
+    answer_id: str | None = None  # use with POST /feedback
+    answer_confidence: float | None = None  # best source relevance, None if no sources
+    answer_confidence_level: str | None = None

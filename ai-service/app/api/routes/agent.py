@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import CurrentUser, get_current_user
 
-from app.models.agent import ChatRequest, ChatResponse, SourceRef
+from app.models.agent import ChatRequest, ChatResponse
+from app.services.citation_service import build_citations, overall_confidence
+from app.services.feedback_service import record_answer
 from app.services.agent_service import run_agent
 from app.services.agent_service import ADMIN_ONLY_TOOLS, TOOLS
 from app.services.workspace_service import (
@@ -129,20 +131,24 @@ async def chat(
             detail=f"Failed to process question: {exc}",
         ) from exc
 
-    sources = [
-        SourceRef(
-            document_id=source["document_id"],
-            document_name=source.get("document_name"),
-            page=source.get("page"),
-            score=source.get("score"),
-        )
-        for source in result["sources"]
-    ]
+    citations = build_citations(result["sources"])
+    best_confidence, best_level = overall_confidence(citations)
+
+    answer_id = record_answer(
+        username=user.username,
+        question=question,
+        answer=result["answer"],
+        workspace_id=request.workspace_id,
+        document_ids=document_ids,
+    )
 
     return ChatResponse(
         answer=result["answer"],
         traces=result["traces"],
-        sources=sources,
+        sources=citations,
+        answer_id=answer_id,
+        answer_confidence=best_confidence,
+        answer_confidence_level=best_level,
     )
 
 

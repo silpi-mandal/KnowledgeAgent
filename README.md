@@ -323,3 +323,27 @@ Login is required for everything except `GET /health`. Two roles:
 Use the token as `Authorization: Bearer <token>`. Passwords are stored as salted scrypt hashes; role and access are re-checked from the user store on every request. A workspace or document you cannot access returns 404, same as one that doesn't exist.
 
 **Known limits (student project):** no login rate limiting, no password reset, tokens can't be revoked before they expire (they expire after `TOKEN_EXPIRE_MINUTES`; deleting a user does block them immediately). Use HTTPS if you ever deploy this. `AUTH_ENABLED=false` is for local development only.
+
+---
+
+## Citations, confidence and feedback (Task 6)
+
+`POST /agent/chat` now returns, besides `answer`:
+
+| Field | Meaning |
+| --- | --- |
+| `sources[]` | One citation per document page: `document_name`, `page`, `snippet` (start of the passage), `confidence`, `confidence_level`. Best match first. |
+| `answer_confidence` / `answer_confidence_level` | The best source's confidence (`null` when nothing was retrieved) |
+| `answer_id` | Pass this to `POST /feedback` |
+
+**What "confidence" means:** it is the cosine similarity between the question and the retrieved passage (0-1), derived from the FAISS distance. Levels: `high` ≥ 0.60, `medium` ≥ 0.40, otherwise `low`. It tells you how closely a passage matches the question. **It does not prove the answer is correct**, so always check the cited page. Exact "Module N" lookups have no similarity score, so they show `null`. The thresholds were chosen for normalized embeddings (OpenAI, all-MiniLM-L6-v2); re-check them if you switch models.
+
+**Feedback**
+
+| Endpoint | Who | Purpose |
+| --- | --- | --- |
+| `POST /feedback` | the person who got the answer | `{answer_id, rating: "up"\|"down", comment?}`; sending again replaces your rating |
+| `GET /feedback?rating=down&limit=50` | admin | Ratings with the question and answer that were rated |
+| `GET /feedback/summary` | admin | Totals, satisfaction rate, counts per workspace |
+
+Privacy note: to make feedback possible, each answer (question + answer text) is stored in `storage/answers/`. Only admins can read it through the API; delete that folder if you don't want to keep it. Answer ids are UUIDs, validated before any file access, and you can only rate your own answers.
