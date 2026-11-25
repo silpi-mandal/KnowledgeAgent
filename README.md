@@ -281,3 +281,18 @@ Documents are grouped into workspaces (e.g. HR, IT, Policies). Documents uploade
 The agent can only touch documents selected for the chat: tool calls on any other document are denied and `list_documents_tool` results are filtered.
 
 Run tests: `cd ai-service && pip install -r requirements.txt && pytest`
+
+---
+
+## Enterprise MCP tools (Task 4)
+
+The MCP server (`ai-service/documind_mcp/server.py`) now exposes four enterprise tools next to the document tools. All data is **synthetic** (`documind_mcp/enterprise_data.py`).
+
+| MCP tool | What it does |
+| --- | --- |
+| `lookup_ticket` | Get one ticket by id (`IT-1001`, `HR-2001`, `FIN-3001`) |
+| `search_tickets` | Filter tickets by status, assignee, keyword |
+| `find_employee` | Search the employee directory by name/title/email, optional department |
+| `send_notification` | **Mock**: validates the recipient and appends to `storage/outbox.jsonl`. No real email is sent. |
+
+The agent can call all of them (`GET /agent/tools`). Example questions: "Who is assigned to the VPN ticket and what is their email?", "List open IT tickets", "Notify Asha about HR-2001". Core logic lives in `documind_mcp/enterprise_tools.py`; `tests/test_enterprise_mcp_integration.py` starts the real MCP server to verify the tools end to end.

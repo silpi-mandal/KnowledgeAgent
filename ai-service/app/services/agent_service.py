@@ -10,6 +10,10 @@ from langchain_core.messages import (
 from app.models.agent import ChatMessage
 from app.services.llm_service import create_llm
 from app.services.mcp_tools import (
+    find_employee_tool,
+    lookup_ticket_tool,
+    search_tickets_tool,
+    send_notification_tool,
     get_document_info_tool,
     list_documents_tool,
     search_document_tool,
@@ -26,6 +30,10 @@ TOOLS = [
     search_document_tool,
     get_document_info_tool,
     list_documents_tool,
+    lookup_ticket_tool,
+    search_tickets_tool,
+    find_employee_tool,
+    send_notification_tool,
 ]
 
 TOOLS_BY_NAME = {

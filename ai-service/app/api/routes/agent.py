@@ -123,5 +123,9 @@ def list_tools() -> dict[str, list[str]]:
             "search_document_tool",
             "get_document_info_tool",
             "list_documents_tool",
+            "lookup_ticket_tool",
+            "search_tickets_tool",
+            "find_employee_tool",
+            "send_notification_tool",
         ]
     }

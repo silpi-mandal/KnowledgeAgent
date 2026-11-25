@@ -3,6 +3,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from app.core.config import get_settings
+from documind_mcp import enterprise_tools
 from app.services.document_metadata_service import load_document_metadata
 from app.services.vector_store_service import (
     load_vector_store,
@@ -106,6 +107,51 @@ def list_documents() -> list[dict]:
         documents.append(metadata)
 
     return documents
+
+
+@mcp.tool()
+def lookup_ticket(ticket_id: str) -> dict:
+    """Get one support ticket by id, e.g. IT-1001, HR-2001 or FIN-3001."""
+
+    return enterprise_tools.lookup_ticket(ticket_id)
+
+
+@mcp.tool()
+def search_tickets(
+    status: str | None = None,
+    assignee: str | None = None,
+    keyword: str | None = None,
+    limit: int = 10,
+) -> list[dict]:
+    """Search support tickets. status: open, in_progress, resolved or closed."""
+
+    return enterprise_tools.search_tickets(status, assignee, keyword, limit)
+
+
+@mcp.tool()
+def find_employee(
+    query: str,
+    department: str | None = None,
+) -> list[dict]:
+    """Find employees in the company directory by name, title or email."""
+
+    return enterprise_tools.find_employee(query, department)
+
+
+@mcp.tool()
+def send_notification(
+    recipient_email: str,
+    subject: str,
+    message: str,
+) -> dict:
+    """Queue a notification to an employee (mock outbox, no real email)."""
+
+    return enterprise_tools.send_notification(
+        recipient_email,
+        subject,
+        message,
+        Path(settings.storage_dir) / "outbox.jsonl",
+    )
 
 
 if __name__ == "__main__":
