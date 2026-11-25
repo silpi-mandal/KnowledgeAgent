@@ -296,3 +296,30 @@ The MCP server (`ai-service/documind_mcp/server.py`) now exposes four enterprise
 | `send_notification` | **Mock**: validates the recipient and appends to `storage/outbox.jsonl`. No real email is sent. |
 
 The agent can call all of them (`GET /agent/tools`). Example questions: "Who is assigned to the VPN ticket and what is their email?", "List open IT tickets", "Notify Asha about HR-2001". Core logic lives in `documind_mcp/enterprise_tools.py`; `tests/test_enterprise_mcp_integration.py` starts the real MCP server to verify the tools end to end.
+
+---
+
+## Roles and access control (Task 5)
+
+Login is required for everything except `GET /health`. Two roles:
+
+| | Admin | Employee |
+| --- | --- | --- |
+| See / chat with workspaces | all | only workspaces assigned to them |
+| Upload documents, create/delete workspaces | yes | no |
+| Manage users and workspace access | yes | no |
+| `send_notification` tool | yes | hidden from the model and blocked |
+
+**Setup:** in `ai-service/.env` set `AUTH_SECRET_KEY` (32+ random chars), `ADMIN_USERNAME` and `ADMIN_PASSWORD` (8+ chars). The first admin is created automatically on first login. Without a valid `AUTH_SECRET_KEY`, login returns 503.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /auth/login` | `{username, password}` → bearer token |
+| `GET /auth/me` | Current user |
+| `GET/POST /users` | List / create users (admin) |
+| `PUT /users/{name}/workspaces` | Set which workspaces an employee can access (admin) |
+| `DELETE /users/{name}` | Delete a user (not yourself or the last admin) |
+
+Use the token as `Authorization: Bearer <token>`. Passwords are stored as salted scrypt hashes; role and access are re-checked from the user store on every request. A workspace or document you cannot access returns 404, same as one that doesn't exist.
+
+**Known limits (student project):** no login rate limiting, no password reset, tokens can't be revoked before they expire (they expire after `TOKEN_EXPIRE_MINUTES`; deleting a user does block them immediately). Use HTTPS if you ever deploy this. `AUTH_ENABLED=false` is for local development only.

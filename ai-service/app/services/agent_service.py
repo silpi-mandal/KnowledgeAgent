@@ -36,6 +36,9 @@ TOOLS = [
     send_notification_tool,
 ]
 
+# Tools only admins may use (employees never see or run them).
+ADMIN_ONLY_TOOLS = {"send_notification_tool"}
+
 TOOLS_BY_NAME = {
     tool.name: tool
     for tool in TOOLS
@@ -108,10 +111,17 @@ async def run_agent(
     document_ids: list[str],
     max_steps: int = 5,
     history: list[ChatMessage] | None = None,
+    user_role: str = "employee",
 ) -> dict:
 
     llm = create_llm()
-    llm_with_tools = llm.bind_tools(TOOLS)
+
+    available_tools = [
+        tool
+        for tool in TOOLS
+        if user_role == "admin" or tool.name not in ADMIN_ONLY_TOOLS
+    ]
+    llm_with_tools = llm.bind_tools(available_tools)
 
     history_messages = history_to_messages(
         history
@@ -233,6 +243,15 @@ async def run_agent(
             requested_document = tool_args.get("document_id")
 
             if (
+                tool_name in ADMIN_ONLY_TOOLS
+                and user_role != "admin"
+            ):
+                error = (
+                    "Access denied: this tool requires admin access."
+                )
+                result = error
+
+            elif (
                 requested_document
                 and requested_document not in document_ids
             ):

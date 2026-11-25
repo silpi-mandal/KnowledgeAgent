@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     embedding_model: str = ""
     storage_dir: str = "storage"
 
+    # --- authentication / access control ---
+    auth_enabled: bool = True
+    auth_secret_key: SecretStr = SecretStr("")  # >= 32 chars, required when auth is enabled
+    token_expire_minutes: int = 60
+    admin_username: str = ""  # first admin is created from these on first login
+    admin_password: SecretStr = SecretStr("")
+
     @field_validator("llm_base_url", mode="before")
     @classmethod
     def _empty_base_url_falls_back_to_default(cls, value: object) -> object:

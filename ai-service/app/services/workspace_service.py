@@ -69,6 +69,10 @@ def document_workspace(metadata: dict) -> str:
     return metadata.get("workspace_id") or DEFAULT_WORKSPACE_ID
 
 
+def list_all_documents() -> list[dict]:
+    return list_document_metadata(_vector_stores_path())
+
+
 def list_workspace_documents(workspace_id: str) -> list[dict]:
     return [
         document

@@ -2,7 +2,9 @@ import logging
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+
+from app.api.deps import CurrentUser, get_current_user, require_admin
 from app.core.config import get_settings
 from app.services.document_metadata_service import (
     list_document_metadata,
@@ -63,6 +65,7 @@ def remove_failed_upload(
 def upload_document(
     file: UploadFile = File(...),
     workspace_id: str = Form(DEFAULT_WORKSPACE_ID),
+    _: CurrentUser = Depends(require_admin),
 ) -> DocumentResponse:
 
     try:
@@ -135,6 +138,7 @@ def upload_document(
 )
 def get_documents(
     workspace_id: str | None = None,
+    user: CurrentUser = Depends(get_current_user),
 ) -> list[DocumentResponse]:
 
     settings = get_settings()
@@ -153,6 +157,9 @@ def get_documents(
             **{**document, "workspace_id": document_workspace(document)}
         )
         for document in documents
-        if workspace_id is None
-        or document_workspace(document) == workspace_id
+        if (
+            workspace_id is None
+            or document_workspace(document) == workspace_id
+        )
+        and user.can_access_workspace(document_workspace(document))
     ]

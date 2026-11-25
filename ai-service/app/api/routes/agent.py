@@ -1,8 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.api.deps import CurrentUser, get_current_user
 
 from app.models.agent import ChatRequest, ChatResponse, SourceRef
 from app.services.agent_service import run_agent
+from app.services.agent_service import ADMIN_ONLY_TOOLS, TOOLS
 from app.services.workspace_service import (
+    document_workspace,
+    list_all_documents,
     WorkspaceNotFoundError,
     ensure_workspace_exists,
     list_workspace_documents,
@@ -19,7 +24,10 @@ router = APIRouter(
     "/chat",
     response_model=ChatResponse,
 )
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    user: CurrentUser = Depends(get_current_user),
+) -> ChatResponse:
 
     user_messages = [
         message
@@ -60,6 +68,12 @@ async def chat(request: ChatRequest) -> ChatResponse:
                 detail="Workspace not found.",
             ) from None
 
+        if not user.can_access_workspace(request.workspace_id):
+            raise HTTPException(
+                status_code=404,
+                detail="Workspace not found.",
+            )
+
         workspace_document_ids = [
             document["document_id"]
             for document in list_workspace_documents(request.workspace_id)
@@ -85,12 +99,28 @@ async def chat(request: ChatRequest) -> ChatResponse:
             detail="At least one document_id is required.",
         )
 
+    if not user.is_admin:
+        workspace_by_document = {
+            document["document_id"]: document_workspace(document)
+            for document in list_all_documents()
+        }
+
+        for document_id in document_ids:
+            workspace = workspace_by_document.get(document_id)
+
+            if workspace is None or not user.can_access_workspace(workspace):
+                raise HTTPException(
+                    status_code=404,
+                    detail="Document not found.",
+                )
+
     try:
         result = await run_agent(
             question=question,
             document_ids=document_ids,
             max_steps=request.max_steps,
             history=history,
+            user_role=user.role,
         )
 
     except Exception as exc:
@@ -117,15 +147,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 
 @router.get("/tools")
-def list_tools() -> dict[str, list[str]]:
+def list_tools(
+    user: CurrentUser = Depends(get_current_user),
+) -> dict[str, list[str]]:
     return {
         "tools": [
-            "search_document_tool",
-            "get_document_info_tool",
-            "list_documents_tool",
-            "lookup_ticket_tool",
-            "search_tickets_tool",
-            "find_employee_tool",
-            "send_notification_tool",
+            tool.name
+            for tool in TOOLS
+            if user.is_admin or tool.name not in ADMIN_ONLY_TOOLS
         ]
     }
+

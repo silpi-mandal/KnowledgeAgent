@@ -22,6 +22,9 @@ xlrd==2.0.2
 # MCP (tool servers)
 mcp
 
+# authentication
+pyjwt
+
 # testing
 pytest==9.1.1
 httpx2==2.13.1
