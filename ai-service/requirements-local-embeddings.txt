@@ -1,0 +1,2 @@
+# Optional: free, offline embeddings (EMBEDDING_PROVIDER=local). Large download (torch).
+sentence-transformers

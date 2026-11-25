@@ -1,0 +1,27 @@
+# KnowledgeAgent - FastAPI AI service dependencies
+
+# runtime
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+pydantic-settings==2.15.0
+python-multipart
+
+# LLM / RAG
+openai
+langchain-core
+langchain-community
+langchain-text-splitters
+faiss-cpu
+
+# document ingestion
+pypdf
+pandas==3.0.6
+openpyxl==3.1.5
+xlrd==2.0.2
+
+# MCP (tool servers)
+mcp
+
+# testing
+pytest==9.1.1
+httpx2==2.13.1
