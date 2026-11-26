@@ -273,6 +273,7 @@ def test_traces_sources_and_no_internal_prompt_exposure() -> None:
             "document_name": "notes.pdf",
             "page": 2,
             "score": 0.9,
+            "snippet": "RAG content.",
         }
     ]
     assert result["traces"][0]["ok"] is True

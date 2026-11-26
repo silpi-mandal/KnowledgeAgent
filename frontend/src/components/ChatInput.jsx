@@ -1,7 +1,11 @@
 import { useRef, useState } from 'react'
 import { SendIcon } from './icons'
 
-function ChatInput({ onSend, disabled }) {
+function ChatInput({
+  onSend,
+  disabled,
+  placeholder = 'Ask about your documents...',
+}) {
   const [text, setText] = useState('')
   const textareaRef = useRef(null)
 
@@ -50,7 +54,7 @@ function ChatInput({ onSend, disabled }) {
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
         <div className="flex items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:border-slate-600 dark:bg-slate-900 dark:focus-within:ring-indigo-500/30">
           <label htmlFor="chat-input" className="sr-only">
-            Ask about your document
+            Ask about your documents
           </label>
           <textarea
             id="chat-input"
@@ -60,7 +64,7 @@ function ChatInput({ onSend, disabled }) {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             disabled={disabled}
-            placeholder="Ask about your document..."
+            placeholder={placeholder}
             className="max-h-44 min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed dark:text-slate-100 dark:placeholder:text-slate-500"
           />
           <button

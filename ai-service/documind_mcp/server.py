@@ -19,7 +19,7 @@ VECTOR_STORES_DIR = (
 )
 
 
-mcp = MCPServer("DocuMind")
+mcp = MCPServer("KnowledgeAgent")
 
 
 @mcp.tool()

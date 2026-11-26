@@ -1,161 +1,47 @@
-# DocuMind AI — Planned Architecture
+# KnowledgeAgent - Architecture
 
-**Status: Phase 1 complete — only the FastAPI foundation (`GET /health`, config loading, CORS) is implemented. Every other element below is planned.**
-
-## 1. High-level flow
+## Request flow
 
 ```
-React Frontend
-       ↓
-Node.js / Express API
-       ↓
-Python / FastAPI AI Service
-       ↓
-Document Processing
-       ↓
-Chunking
-       ↓
-Embeddings
-       ↓
-FAISS
-       ↓
-Relevant Context
-       ↓
-LLM
-       ↓
-Answer + Source/Page Information
+React (5173) --/api/* + Bearer token--> Node/Express (3000) --same token--> FastAPI (8000)
+                                                                              |
+                          login, roles, workspaces <--------------------------+
+                          FAISS retrieval + LLM    <--------------------------+
+                          MCP server (stdio)       <--------------------------+
 ```
 
-## 2. Core architecture decision
+**Why three services.** Node is the single entry point for the browser and keeps web concerns (upload limits, CORS, error mapping) in one place. FastAPI owns everything AI-related and every security decision. Node deliberately does not decide who may see what; it forwards the `Authorization` header and passes the AI service's status codes through. The result is one place for access control instead of two that can disagree.
 
-**Node.js is the main application backend. FastAPI is the AI worker.**
+## How a question is answered
 
-The system is deliberately split this way because:
+1. The browser sends `{messages, document_ids, workspace_id}` to `POST /api/ai/chat` with the bearer token.
+2. The AI service identifies the user, checks the workspace or documents against that user's access (404 if not allowed) and resolves the list of document ids.
+3. The agent loop gives the LLM the tools its role may use and runs the tool calls it asks for. A tool call on a document outside the selected set is refused, and the document list is filtered to the selected set.
+4. Document search runs through the MCP server: the query is embedded, FAISS returns the closest chunks, and each hit keeps document, page, text and distance.
+5. The answer is returned with citations (best match first, one per page), a confidence derived from the FAISS distance, tool traces, and an `answer_id` for feedback.
 
-- The project owner is a MERN-stack developer — all application, auth, data, and API concerns stay in familiar territory (JavaScript/Express/MongoDB).
-- Python ecosystem is the natural home for PDF parsing, embeddings, FAISS, and LLM tooling.
-- The two services can be developed, tested, deployed, and scaled independently.
-- The frontend only ever talks to one API (Node.js); it never needs to know the AI service exists.
+## Storage (all local files under `ai-service/storage/`)
 
-Communication model: **frontend → Node.js → FastAPI**, synchronous HTTP for a single request/response, with a queue-based or background-job option considered later for long-running indexing.
+| Path | Content |
+| --- | --- |
+| `vector_stores/<document_id>/` | FAISS index and `metadata.json` (name, type, workspace) |
+| `workspaces.json`, `users.json` | Workspaces; users with scrypt password hashes and workspace access |
+| `answers/`, `feedback/` | One JSON file per answer and per rating |
+| `outbox.jsonl` | Mock notifications |
 
-## 3. Service responsibilities
+There is no database. Users, answers and ratings are written atomically (temp file, then rename); `workspaces.json` is a plain write. That is enough for a single-process demo but not for several instances or heavy concurrent use.
 
-### 3.1 React Frontend
+## Access control model
 
-- UI for uploading documents, asking questions, and viewing answers with sources.
-- Talks exclusively to the Node.js API.
-- Holds no secrets other than what is unavoidable in a browser context (none today).
-- Deployment: Netlify.
+- Two roles. Admins reach every workspace; employees reach the workspaces listed on their user record.
+- Role and workspace access are read from the user store on every request, never trusted from the token.
+- Resources the caller may not access return 404, the same as missing ones, so names and ids cannot be probed.
+- Tools: `send_notification_tool` is admin-only (removed from the model's tool list and blocked at execution). Ticket and directory tools are not scoped by workspace (see README, known limits).
 
-### 3.2 Node.js / Express — main backend
+## Confidence
 
-Owns everything that is *application* logic:
+FAISS returns a squared L2 distance. For unit-length embeddings this equals `2 - 2*cosine`, so `1 - distance/2` is the cosine similarity between question and passage. It measures retrieval match, not answer correctness. Thresholds: high >= 0.60, medium >= 0.40.
 
-- Authentication (JWT), password hashing, session/token handling.
-- Users and authorization (whose documents, whose chats).
-- Document metadata: filename, owner, size, upload time, indexing status.
-- Chat history persistence (MongoDB).
-- Application-level REST APIs for the frontend.
-- Forwarding files and questions to the FastAPI service, and mapping its responses back.
+## Deployment
 
-Does **not** own: PDF parsing, chunking, embeddings, FAISS, retrieval, or LLM calls.
-
-Deployment: Render. Database: MongoDB (Atlas in production).
-
-### 3.3 Python / FastAPI — AI service
-
-Owns everything that is *AI* logic:
-
-- PDF processing and text extraction (page-aware).
-- Text chunking with overlap and page tracking.
-- Embedding generation.
-- FAISS index creation, persistence, and similarity search.
-- Retrieval of top-k relevant chunks.
-- Prompt construction and paid LLM API interaction.
-- Returning `{ answer, sources: [{ document, page, snippet }] }`.
-- Future: agentic workflows, tool calling, MCP tool usage.
-
-Does **not** own: users, auth, authorization, chat history, document metadata.
-
-Deployment: Render. Internal only — not exposed to the public internet.
-
-### 3.4 MongoDB
-
-- Stores users, document metadata, chat sessions, and messages.
-- Stores **no** vector data (FAISS owns that) and **no** file bytes (disk/Cloudinary owns that).
-
-### 3.5 FAISS
-
-- Local vector index files on disk (`faiss_index/`, git-ignored).
-- One index (or index shard) per document initially; a consolidated index is a later optimization.
-- **Rebuildable, not permanent** — indexes are derived data and can be regenerated from stored chunks (required by ephemeral free-tier disks, see §6).
-
-### 3.6 File storage
-
-- Phase 0–10: local `uploads/` directory (git-ignored).
-- Later: Cloudinary for durable object storage.
-
-### 3.7 LLM
-
-- Paid API, called only from the FastAPI service.
-- Provider is **not** decided and **not** hard-coded — an abstraction layer is planned so the provider can be swapped (Phase 4).
-- Keys are supplied only via environment variables.
-
-## 4. Planned request flows
-
-### 4.1 Upload and index
-
-```
-User → Frontend → Node.js (auth, metadata, store file)
-                     → FastAPI (extract text → chunk → embed → FAISS)
-                     ← status
-       Node.js updates indexing status in MongoDB
-       ← upload/indexing result
-User ← Frontend
-```
-
-### 4.2 Ask a question
-
-```
-User → Frontend → Node.js (auth, load history)
-                     → FastAPI (embed question → FAISS top-k → build prompt → LLM)
-                     ← answer + sources
-       Node.js saves Q/A to MongoDB
-       ← response
-User ← Frontend (answer + page citations)
-```
-
-## 5. Cross-cutting concerns (planned, not implemented)
-
-- **Configuration** — all secrets via `.env`; `.env.example` committed, `.env` ignored.
-- **Validation** — request validation at both service boundaries.
-- **Errors** — consistent JSON error shape across services.
-- **CORS** — FastAPI allows only Node.js; Node.js allows only the frontend origin.
-- **Rate limiting** — on public Node.js endpoints.
-- **Observability** — structured logs; retrieval/token metrics later.
-- **Testing** — pytest for AI service, jest/vitest for backend, component tests for frontend.
-
-## 6. Deployment topology (planned — free tier only)
-
-**Hard constraint: the entire portfolio deployment must run on free/free-tier services.** The architecture is not designed around AWS, Azure, GCP, Kubernetes, or any paid infrastructure, and no service may require payment for the basic deployment.
-
-| Service | Platform | Notes |
-| --- | --- | --- |
-| React frontend | Netlify Free | Static build |
-| Node.js backend | Render Free | Public entry point; cold starts on free plan |
-| FastAPI AI service | Render Free | Must tolerate sleep/cold starts and small RAM |
-| MongoDB | MongoDB Atlas Free (M0) | Storage and connection limits apply |
-| Files | Cloudinary Free (or comparable free tier) | Bandwidth/storage limits apply |
-| Secrets | Platform env vars | Never in GitHub, never in frontend code |
-
-**Free-tier limitations that shape design decisions:**
-
-- **Sleep/cold starts (Render Free)** — services spin down when idle; the first request after idle is slow. Keep request paths idempotent and avoid assuming a warm process.
-- **Ephemeral filesystem** — disk contents can vanish on redeploy/restart. **FAISS is explicitly NOT permanent storage**: it is a *rebuildable index* derived from durable data (document text/chunks in MongoDB or object storage). The system must be able to rebuild any index from source data at any time.
-- **Storage/bandwidth caps** — large uploads and heavy traffic are bounded; design for a small portfolio dataset.
-- **RAM limits** — embedding and LLM work must be API-based rather than loading large local models.
-
-## 7. Explicitly out of scope for now
-
-Authentication, PDF processing, chunking, embeddings, FAISS, LLM integration, chat, agentic workflows, MCP, Docker, and deployment are **documented here but not implemented**.
+Not deployed. Everything runs locally. A free-tier deployment would need a persistent disk for `storage/` (or a move to a real database and object storage), HTTPS, rate limiting and a proper secret store; none of that exists yet.

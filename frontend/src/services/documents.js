@@ -1,14 +1,11 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+import { apiFetch } from './http'
 
-export async function getDocuments() {
-  const response = await fetch(`${API_BASE_URL}/documents`)
+export async function getDocuments(workspaceId) {
+  const query = workspaceId
+    ? `?workspace_id=${encodeURIComponent(workspaceId)}`
+    : ''
 
-  if (!response.ok) {
-    throw new Error('Failed to load documents')
-  }
-
-  const data = await response.json()
+  const data = await apiFetch(`/documents${query}`)
 
   if (!Array.isArray(data)) {
     throw new Error('Failed to load documents')
@@ -17,19 +14,12 @@ export async function getDocuments() {
   return data
 }
 
-export async function uploadDocument(file) {
+// Admin only on the server; the UI hides the button for everyone else.
+export function uploadDocument(file, workspaceId) {
   const formData = new FormData()
 
+  if (workspaceId) formData.append('workspace_id', workspaceId)
   formData.append('file', file)
 
-  const response = await fetch(`${API_BASE_URL}/documents/upload`, {
-    method: 'POST',
-    body: formData,
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to upload document')
-  }
-
-  return response.json()
+  return apiFetch('/documents/upload', { method: 'POST', formData })
 }

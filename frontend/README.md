@@ -1,44 +1,22 @@
-# Frontend — DocuMind AI
+# Frontend (React + Vite + Tailwind)
 
-**Status: Phase 0 placeholder — no application code yet.**
+Sign-in page, workspace selector, document list, chat with citations, confidence badges, thumbs up/down feedback and a tool-activity view.
 
-React + Vite single-page application for DocuMind AI.
-
-## Planned responsibilities
-
-- Upload documents (PDF) and show upload/processing status.
-- Ask natural-language questions about indexed documents.
-- Display answers together with source/page references.
-- Manage the list of the user's documents.
-- Handle authentication flows (login/register) against the Node.js backend.
-- Present chat history (later phases).
-
-## Planned stack
-
-- React 18+ with Vite
-- Routing (React Router)
-- HTTP client (fetch/axios)
-- Plain CSS / Tailwind (decision made in Phase 7)
-- Deploy target: Netlify
-
-## Directory (created in Phase 7)
-
-```
-frontend/
-├── src/
-├── public/
-├── index.html
-├── package.json
-└── vite.config.js
-```
-
-## Development
-
-Nothing to run yet. In Phase 7:
+## Run
 
 ```bash
+cd frontend
 npm install
-npm run dev
+npm run dev        # http://localhost:5173  (needs the backend on :3000)
+npm run lint
+npm run build
 ```
 
-The frontend will call the Node.js backend (`backend/`), never the AI service directly.
+`VITE_API_BASE_URL` (default `http://localhost:3000/api`) points at the Node backend; see `.env.example`.
+
+## How it behaves
+
+- **Login:** the bearer token is kept in `sessionStorage` (cleared when the tab closes). A 401 on a signed-in request sends the user back to the sign-in page with a "session expired" notice. Signing out discards all chat state.
+- **Roles:** the Upload button is shown to admins only. Employees see only the workspaces assigned to them.
+- **Answers:** each source shows document, page, a confidence badge and an expandable snippet. The badge says how closely a passage matches the question; it does **not** mean the answer is correct.
+- **Errors:** messages for 4xx responses are shown to the user; server (5xx) details never are.

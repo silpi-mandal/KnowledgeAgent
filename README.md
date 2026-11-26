@@ -1,349 +1,173 @@
 # KnowledgeAgent
 
-> **Status: Task 2 done — dependencies fixed, free LLM + local embeddings configurable. Built on the DocuMind AI codebase as a reference; evolving into an MCP-powered enterprise knowledge assistant (workspaces, MCP tools, access control, citations).**
+An MCP-powered enterprise knowledge assistant. Employees sign in, pick a **workspace** (HR, IT, ...), and ask questions in plain language. An AI agent answers from the workspace's documents, shows **where** each answer came from, and can call company tools (ticket lookup, employee directory) through the **Model Context Protocol (MCP)**. Admins control who can see which workspace.
 
+Built on the DocuMind AI codebase as a reference, then extended with workspaces, MCP tools, login and roles, citations with confidence, feedback and a new UI.
 
-DocuMind AI is a full-stack AI document assistant that will allow users to upload documents and ask natural-language questions about their content. The system is designed around a React frontend, a Node.js/Express backend, a Python FastAPI AI service, a RAG (Retrieval-Augmented Generation) pipeline, and FAISS vector search.
+## What it does
 
-### Current status
-
-- **Phase:** Phase 0 ✅, Phase 1 ✅ → **next: Phase 2**
-- **Done so far:** repository initialized · project structure · documentation · Git config · runnable FastAPI service (`GET /health`, `.env` config loading, CORS, 3 passing tests)
-- **Not implemented yet:** Authentication · PDF processing · chunking · embeddings · FAISS · LLM integration · chat · agentic workflows · MCP · Docker · deployment
-
----
-
-## 1. Overview
-
-DocuMind AI targets a single, clear job: turn a pile of PDF documents into something you can have a conversation with. A user uploads a document, the system extracts and indexes its content, and the user can then ask questions in plain language and receive answers grounded in the document — together with the page/slice information the answer came from.
-
-The project is intentionally split into three deployable services so that each layer can be learned, tested, and scaled independently:
-
-- **Frontend (React + Vite)** — user interface.
-- **Main backend (Node.js + Express)** — application logic, users, auth, document metadata, chat history.
-- **AI service (Python + FastAPI)** — document processing, chunking, embeddings, FAISS retrieval, LLM interaction.
-
-## 2. Problem Statement
-
-Working with long documents is slow and error-prone. Readers must scan hundreds of pages to answer a single question, and generic chatbots cannot cite where an answer came from, which makes their output untrustworthy for research, legal, technical, or academic material.
-
-DocuMind AI addresses this by combining:
-
-1. **Retrieval** — only the relevant slices of a document are considered.
-2. **Grounding** — answers are produced from retrieved context, not from model memory alone.
-3. **Attribution** — each answer carries source/page information so it can be verified.
-
-## 3. Project Goals
-
-- Build a clean, multi-service architecture that separates web application concerns from AI concerns.
-- Implement a working RAG pipeline: PDF → text → chunks → embeddings → FAISS → context → LLM → answer.
-- Return answers with source/page metadata, not just prose.
-- Keep the codebase approachable for a MERN developer who is concurrently learning Python, FastAPI, and AI engineering.
-- Progress in small, verifiable phases (see `docs/development-plan.md`) rather than one large build.
-- Leave the system ready for later additions: chat history, multiple documents, tool calling, agents, MCP, and production deployment.
-
-## 4. Planned Features
-
-> All features below are **planned**. None are implemented in Phase 0.
-
-| Feature | Status |
+| Feature | Details |
 | --- | --- |
-| Project structure and documentation | ✅ Phase 0 |
-| FastAPI foundation (`/health`, config, CORS, tests) | ✅ Phase 1 |
-| PDF upload and text extraction | ⬜ Planned (Phase 2) |
-| Text chunking with page tracking | ⬜ Planned |
-| Embeddings generation | ⬜ Planned |
-| FAISS vector index and similarity search | ⬜ Planned |
-| LLM-powered answers with cited sources/pages | ⬜ Planned |
-| User authentication (JWT) | ⬜ Planned |
-| Document metadata storage (MongoDB) | ⬜ Planned |
-| Chat interface | ⬜ Planned |
-| Chat history persistence | ⬜ Planned |
-| Multiple document support | ⬜ Planned |
-| Tool calling / agentic workflows | ⬜ Planned |
-| MCP tool integration | ⬜ Planned |
-| Dockerized local environment | ⬜ Planned |
-| Production deployment | ⬜ Planned |
+| Document Q&A (RAG) | Upload PDF, CSV, XLSX or XLS. Text is chunked, embedded and stored in FAISS; the agent retrieves the closest passages and answers from them. |
+| Workspaces | Documents are grouped (HR, IT, Policies...). A chat searches one workspace or one document. |
+| MCP tools | The agent calls tools served by an MCP server: document search and info, `lookup_ticket`, `search_tickets`, `find_employee`, `send_notification` (mock). |
+| Login and roles | `admin` and `employee`. Employees only see workspaces assigned to them. Notifications are admin-only. |
+| Citations and confidence | Every answer lists document, page, an expandable snippet and a match score. |
+| Feedback | Thumbs up/down with an optional comment; admins can read ratings and a summary. |
+| Tool activity | Each answer can show which tools the agent called, their arguments and result. |
 
-## 5. Planned Architecture
+> **About the confidence score:** it is the cosine similarity between your question and the retrieved passage (0-1; high >= 0.60, medium >= 0.40). It tells you how closely a passage *matches the question*. It does **not** prove the answer is correct, so check the cited page. The cut-offs were chosen for normalized embeddings and should be re-checked if you change the embedding model.
 
-```
-React Frontend
-       ↓
-Node.js / Express API          ← auth, users, metadata, chat history, authorization
-       ↓
-Python / FastAPI AI Service    ← PDF processing, chunking, embeddings, FAISS, retrieval, LLM
-       ↓
-Document Processing
-       ↓
-Chunking
-       ↓
-Embeddings
-       ↓
-FAISS Vector Search
-       ↓
-Relevant Document Context
-       ↓
-LLM (paid API, provider-agnostic)
-       ↓
-Answer + Source/Page Information
-```
+<!-- Add your screenshots to docs/screenshots/ and uncomment:
+![Sign in](docs/screenshots/01-login.png)
+![Answer with citations and confidence](docs/screenshots/02-answer-citations.png)
+![Tool activity](docs/screenshots/03-tool-activity.png)
+-->
 
-**Key decision:** Node.js remains the main application backend; FastAPI owns AI-related processing only. Rationale and per-service responsibilities are documented in [`docs/architecture.md`](docs/architecture.md).
-
-## 6. Technology Stack
-
-| Layer | Technology | Notes |
-| --- | --- | --- |
-| Frontend | React, Vite | Deploy target: Netlify (later) |
-| Main backend | Node.js, Express.js | Deploy target: Render (later) |
-| AI service | Python, FastAPI | Deploy target: Render (later) |
-| Database | MongoDB | Atlas in production (later) |
-| Vector search | FAISS | Local index files for now |
-| Document storage | Local disk → Cloudinary (later) | Not configured yet |
-| LLM | Paid LLM API (TBD) | No provider hard-coded; chosen in a later phase |
-| Containerization | Docker | Later phase |
-| Version control | Git / GitHub | Local repo only at this stage |
-
-## 7. RAG Workflow (Planned)
-
-1. User uploads a PDF through the React frontend.
-2. Node.js validates the request, records document metadata in MongoDB, and forwards the file to the FastAPI AI service.
-3. FastAPI extracts text, preserving page numbers.
-4. Text is split into overlapping chunks; each chunk keeps a reference to its source document and page range.
-5. Chunks are converted into embeddings and written into a FAISS index.
-6. At question time, the user's question is embedded and the k most similar chunks are retrieved.
-7. Retrieved context + question are sent to the LLM with a prompt that requires grounded answers.
-8. The response is returned with answer text and source/page metadata.
-9. Node.js persists the exchange as chat history and returns it to the frontend.
-
-## 8. Project Structure
+## Architecture
 
 ```
-documind-ai/
-│
-├── frontend/            # React + Vite application
-├── backend/             # Node.js / Express main API
-├── ai-service/          # Python / FastAPI AI service
-├── docs/                # Architecture and planning documents
-├── docker/              # Container configuration (later)
-├── .github/
-│   └── workflows/       # CI/CD (placeholder for now)
-│
-├── .gitignore
-├── .env.example         # Placeholder environment variables
-├── README.md
-└── LICENSE
+Browser (React + Vite)                    :5173
+   |  /api/*  + Authorization: Bearer <token>
+   v
+Node.js / Express gateway                 :3000   validates uploads, forwards the token, maps errors
+   |  same token
+   v
+FastAPI AI service                        :8000   login, roles, workspaces, RAG, agent, feedback
+   |-- FAISS indexes + JSON files          (ai-service/storage/)
+   |-- LLM via any OpenAI-compatible API   (Gemini free tier by default)
+   '-- MCP server (stdio subprocess)       documents + enterprise tools
 ```
 
-Each service folder contains its own `README.md` describing its intended responsibilities. `backend/.env.example` and `ai-service/.env.example` hold service-specific placeholder variables.
+The browser never calls the AI service directly. The Node layer only forwards the `Authorization` header; **the AI service makes every permission decision** (who you are, which workspaces you may use, which tools the model may run), so there is one place to get access control right. More detail: [`docs/architecture.md`](docs/architecture.md).
 
-## 9. Development Roadmap
+## Quick start
 
-| Phase | Focus | Status |
-| --- | --- | --- |
-| 0 | Project setup and documentation | ✅ |
-| 1 | Python + FastAPI foundation | ✅ |
-| 2 | PDF document processing | ▶ **Current** |
-| 3 | Embeddings + FAISS | ⬜ |
-| 4 | RAG + LLM | ⬜ |
-| 5 | Node.js + MongoDB | ⬜ |
-| 6 | Node.js ↔ FastAPI integration | ⬜ |
-| 7 | React frontend | ⬜ |
-| 8 | Chat history and multiple documents | ⬜ |
-| 9 | Agentic capabilities | ⬜ |
-| 10 | MCP integration | ⬜ |
-| 11 | Docker and deployment | ⬜ |
-| 12 | Production improvements and cost optimization | ⬜ |
+Prerequisites: Python 3.11+, Node.js LTS, and a free [Gemini API key](https://aistudio.google.com) (or another OpenAI-compatible provider).
 
-Full phase descriptions live in [`docs/development-plan.md`](docs/development-plan.md).
-
-## 10. Environment Variables
-
-Placeholder variables are listed in [`.env.example`](.env.example), with service-specific copies in `backend/.env.example` and `ai-service/.env.example`.
-
-```
-NODE_ENV=
-PORT=
-MONGODB_URI=
-AI_SERVICE_URL=
-LLM_API_KEY=
-JWT_SECRET=
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-```
-
-- These are **examples/placeholders only** — no real values are committed.
-- Real `.env` files are ignored by `.gitignore`.
-- Never commit API keys, secrets, or connection strings.
-
-## 11. Local Development
-
-> The AI service runs today. Backend and frontend commands activate in Phases 5 and 7.
+### 1. AI service (port 8000)
 
 ```bash
-# 1. Clone
-git clone <your-repo-url>
-cd documind-ai
-
-# 2. Environment (optional — safe defaults exist; no secrets committed)
-copy .env.example .env          # Windows
-# cp .env.example .env          # macOS / Linux
-
-# 3. AI service ✅ (Phase 1 — runnable now)
 cd ai-service
 python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # macOS / Linux
+.venv\Scripts\activate            # Windows   (source .venv/bin/activate on macOS/Linux)
 pip install -r requirements.txt
-uvicorn app.main:app --reload   # http://127.0.0.1:8000  (docs at /docs)
-pytest                          # smoke tests
-
-# 4. Backend (Phase 5+)
-cd ../backend
-# npm install
-# npm run dev
-
-# 5. Frontend (Phase 7+)
-cd ../frontend
-# npm install
-# npm run dev
+pip install -r requirements-local-embeddings.txt   # free offline embeddings (large download)
+copy .env.example .env            # Windows   (cp on macOS/Linux)
 ```
 
-Prerequisites: Node.js (LTS), Python 3.11+, MongoDB (local or Atlas), Git.
+Edit `ai-service/.env`:
 
-## 12. Testing Strategy (Planned)
+- `LLM_API_KEY` - your key. `LLM_MODEL` / `LLM_BASE_URL` are pre-filled for Gemini.
+- `EMBEDDING_PROVIDER=local` (free, offline) - or `openai` to use the remote endpoint.
+- `AUTH_SECRET_KEY` - 32+ random characters: `python -c "import secrets; print(secrets.token_urlsafe(48))"`
+- `ADMIN_USERNAME` and `ADMIN_PASSWORD` (8+ characters) - the first admin is created from these on first login.
 
-- **Python service** — `pytest` unit tests for extraction, chunking, retrieval helpers; later, evaluation sets for answer quality.
-- **Node backend** — `jest`/`vitest` unit tests plus supertest-style API tests.
-- **Frontend** — component tests with Vitest + React Testing Library; smoke tests for the upload/chat flows.
-- **Integration** — end-to-end happy path: upload → index → ask → grounded answer.
-- **RAG quality** — a small fixed question/answer dataset used to detect retrieval regressions.
-- CI wiring is deferred to a later phase; `.github/workflows/` currently holds only a placeholder README.
+```bash
+uvicorn app.main:app --reload     # http://localhost:8000  (API docs at /docs)
+```
 
-## 13. Deployment Plan (Planned — free tier only)
+> Start it from the activated virtual environment inside `ai-service/`: the MCP server is launched as `python -m documind_mcp.server`, so `python` must be that environment's Python.
 
-**Constraint: the whole portfolio deployment must stay on free/free-tier services.** No AWS, Azure, GCP, Kubernetes, or paid infrastructure. Free-tier limits (cold starts, RAM, storage, bandwidth, ephemeral disks) are design inputs — see [`docs/architecture.md` §6](docs/architecture.md).
+### 2. Backend (port 3000)
 
-| Component | Target |
-| --- | --- |
-| React frontend | Netlify |
-| Node.js backend | Render |
-| FastAPI AI service | Render |
-| MongoDB | MongoDB Atlas |
-| Files | Local storage → Cloudinary |
-| Secrets | Platform environment variables, never in Git |
+```bash
+cd backend
+npm install
+copy .env.example .env
+npm run dev
+```
 
-Deployment, containerization, and CI/CD are Phase 11 work.
+### 3. Frontend (port 5173)
 
-## 14. Security Considerations (Planned)
+```bash
+cd frontend
+npm install
+npm run dev                       # open http://localhost:5173
+```
 
-- Secrets live only in environment variables; `.env*` is git-ignored (`.env.example` is the sole exception).
-- Authentication via JWT with short-lived access tokens and hashed passwords (Node.js side).
-- Strict file-type and size validation on uploads; extracted text and uploaded files stored outside the web root.
-- Rate limiting and request size limits on public endpoints.
-- Prompt-injection awareness: retrieved document content is treated as untrusted data in LLM prompts.
-- Least-privilege credentials for MongoDB, Cloudinary, and the LLM API key.
-- Input validation on every API boundary; CORS restricted to the known frontend origin.
-- Dependency and secret scanning once CI is introduced.
+### 4. Load the demo data (optional but recommended)
 
-## 15. Future Improvements
+With the AI service running:
 
-- Streaming answers over SSE/WebSocket.
-- Hybrid search (BM25 + vectors) and re-ranking.
-- Multi-document and cross-document questions.
-- Conversation memory and summarization of long chats.
-- Tool calling, agentic workflows, and MCP tool integration.
-- Cost/latency optimization: caching, smaller embedding models, index compression.
-- Observability: tracing of retrieval quality, token usage, and latency.
+```bash
+cd ai-service
+python scripts/seed_demo.py --admin-password <your ADMIN_PASSWORD>
+```
 
-## 16. License
+This creates the `hr` and `it` workspaces, two employees (`alice` -> HR, `bob` -> IT) with generated passwords (printed once), and uploads two synthetic documents from `docs/demo-data/`. It is safe to re-run. Then follow [`docs/DEMO.md`](docs/DEMO.md).
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-## Workspaces (Task 3)
-
-Documents are grouped into workspaces (e.g. HR, IT, Policies). Documents uploaded before workspaces existed belong to the default `general` workspace.
-
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /workspaces` | List workspaces with document counts |
-| `POST /workspaces` | Create `{ "name": "HR Policies" }` (id becomes `hr-policies`) |
-| `GET /workspaces/{id}/documents` | Documents in a workspace |
-| `DELETE /workspaces/{id}` | Delete an empty workspace (not `general`) |
-| `POST /documents/upload` | Optional form field `workspace_id` (default `general`) |
-| `GET /documents?workspace_id=...` | Filter documents by workspace |
-| `POST /agent/chat` | Optional `workspace_id`: searches only that workspace's documents |
-
-The agent can only touch documents selected for the chat: tool calls on any other document are denied and `list_documents_tool` results are filtered.
-
-Run tests: `cd ai-service && pip install -r requirements.txt && pytest`
-
----
-
-## Enterprise MCP tools (Task 4)
-
-The MCP server (`ai-service/documind_mcp/server.py`) now exposes four enterprise tools next to the document tools. All data is **synthetic** (`documind_mcp/enterprise_data.py`).
-
-| MCP tool | What it does |
-| --- | --- |
-| `lookup_ticket` | Get one ticket by id (`IT-1001`, `HR-2001`, `FIN-3001`) |
-| `search_tickets` | Filter tickets by status, assignee, keyword |
-| `find_employee` | Search the employee directory by name/title/email, optional department |
-| `send_notification` | **Mock**: validates the recipient and appends to `storage/outbox.jsonl`. No real email is sent. |
-
-The agent can call all of them (`GET /agent/tools`). Example questions: "Who is assigned to the VPN ticket and what is their email?", "List open IT tickets", "Notify Asha about HR-2001". Core logic lives in `documind_mcp/enterprise_tools.py`; `tests/test_enterprise_mcp_integration.py` starts the real MCP server to verify the tools end to end.
-
----
-
-## Roles and access control (Task 5)
-
-Login is required for everything except `GET /health`. Two roles:
+## Roles
 
 | | Admin | Employee |
 | --- | --- | --- |
-| See / chat with workspaces | all | only workspaces assigned to them |
+| See and chat with workspaces | all | only assigned workspaces |
 | Upload documents, create/delete workspaces | yes | no |
 | Manage users and workspace access | yes | no |
+| Read feedback and summary | yes | no |
 | `send_notification` tool | yes | hidden from the model and blocked |
 
-**Setup:** in `ai-service/.env` set `AUTH_SECRET_KEY` (32+ random chars), `ADMIN_USERNAME` and `ADMIN_PASSWORD` (8+ chars). The first admin is created automatically on first login. Without a valid `AUTH_SECRET_KEY`, login returns 503.
+There is no admin screen for creating users or workspaces. Use `scripts/seed_demo.py` or the AI service's Swagger page (`http://localhost:8000/docs`, click **Authorize** and paste a token from `POST /auth/login`).
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /auth/login` | `{username, password}` → bearer token |
-| `GET /auth/me` | Current user |
-| `GET/POST /users` | List / create users (admin) |
-| `PUT /users/{name}/workspaces` | Set which workspaces an employee can access (admin) |
-| `DELETE /users/{name}` | Delete a user (not yourself or the last admin) |
+## API overview
 
-Use the token as `Authorization: Bearer <token>`. Passwords are stored as salted scrypt hashes; role and access are re-checked from the user store on every request. A workspace or document you cannot access returns 404, same as one that doesn't exist.
-
-**Known limits (student project):** no login rate limiting, no password reset, tokens can't be revoked before they expire (they expire after `TOKEN_EXPIRE_MINUTES`; deleting a user does block them immediately). Use HTTPS if you ever deploy this. `AUTH_ENABLED=false` is for local development only.
-
----
-
-## Citations, confidence and feedback (Task 6)
-
-`POST /agent/chat` now returns, besides `answer`:
-
-| Field | Meaning |
-| --- | --- |
-| `sources[]` | One citation per document page: `document_name`, `page`, `snippet` (start of the passage), `confidence`, `confidence_level`. Best match first. |
-| `answer_confidence` / `answer_confidence_level` | The best source's confidence (`null` when nothing was retrieved) |
-| `answer_id` | Pass this to `POST /feedback` |
-
-**What "confidence" means:** it is the cosine similarity between the question and the retrieved passage (0-1), derived from the FAISS distance. Levels: `high` ≥ 0.60, `medium` ≥ 0.40, otherwise `low`. It tells you how closely a passage matches the question. **It does not prove the answer is correct**, so always check the cited page. Exact "Module N" lookups have no similarity score, so they show `null`. The thresholds were chosen for normalized embeddings (OpenAI, all-MiniLM-L6-v2); re-check them if you switch models.
-
-**Feedback**
+The browser uses the Node routes listed in [`backend/README.md`](backend/README.md). The AI service exposes:
 
 | Endpoint | Who | Purpose |
 | --- | --- | --- |
-| `POST /feedback` | the person who got the answer | `{answer_id, rating: "up"\|"down", comment?}`; sending again replaces your rating |
-| `GET /feedback?rating=down&limit=50` | admin | Ratings with the question and answer that were rated |
-| `GET /feedback/summary` | admin | Totals, satisfaction rate, counts per workspace |
+| `GET /health` | public | Health check |
+| `POST /auth/login`, `GET /auth/me` | all | Sign in, current user |
+| `GET /workspaces`, `GET /workspaces/{id}/documents` | signed in | Only what you may access |
+| `POST /workspaces`, `DELETE /workspaces/{id}` | admin | Create / delete (empty) workspace |
+| `GET /documents?workspace_id=` | signed in | Document list |
+| `POST /documents/upload` | admin | multipart `file` + `workspace_id` |
+| `POST /agent/chat` | signed in | `{messages, document_ids, workspace_id}` -> answer, `sources[]`, `traces[]`, `answer_id`, `answer_confidence` |
+| `GET /agent/tools` | signed in | Tools available to your role |
+| `POST /feedback` | signed in | Rate an answer you received |
+| `GET /feedback`, `GET /feedback/summary` | admin | Read ratings |
+| `GET/POST /users`, `PUT /users/{name}/workspaces`, `DELETE /users/{name}` | admin | User management |
 
-Privacy note: to make feedback possible, each answer (question + answer text) is stored in `storage/answers/`. Only admins can read it through the API; delete that folder if you don't want to keep it. Answer ids are UUIDs, validated before any file access, and you can only rate your own answers.
+A workspace, document or answer you are not allowed to touch returns **404**, the same as one that does not exist.
+
+## Testing
+
+```bash
+cd ai-service && pytest               # 147 tests: RAG, agent, MCP tools, auth, workspaces, feedback
+cd frontend && npm run lint && npm run build
+```
+
+- The Python tests use fake embeddings and a mocked LLM, so they need no API key and no network. One group starts the real MCP server over stdio.
+- The Node backend has no automated tests yet (`npm test` is a placeholder). It was checked by hand against the real AI service.
+- Chat answers with a real LLM have to be checked manually; rehearse the demo once with your own key.
+
+## Security notes and known limits
+
+- Passwords are stored as salted scrypt hashes; tokens are signed, expire after `TOKEN_EXPIRE_MINUTES` (default 60), and role and access are re-checked on every request, so deleting a user takes effect immediately.
+- The token lives in browser `sessionStorage` (gone when the tab closes). A script injected into the page could read it; the UI never renders server text as HTML.
+- `AUTH_ENABLED=false` switches login off and makes everyone an admin. Local development only.
+- **Not done:** login rate limiting (AI service and Node), password reset, early token revocation, HTTPS (use it if you ever deploy), an admin UI.
+- **Tool scope:** the ticket and employee-directory tools are *not* scoped by workspace, so any signed-in employee can ask about any ticket or person. The data is synthetic; add scoping before using real data.
+- `send_notification` is a **mock**: it validates the recipient and appends to `ai-service/storage/outbox.jsonl`. No email is sent.
+- To support feedback, each question and answer is stored in `ai-service/storage/answers/` (readable via the API by admins only). Delete that folder if you do not want it kept.
+- Uploaded content and answers are processed by the LLM provider you configure. Do not upload confidential files to a free-tier provider.
+- Retrieved document text is untrusted input to the model; prompt injection inside a document is a general RAG risk this project does not fully defend against.
+
+## Project structure
+
+```
+KnowledgeAgent/
+├── frontend/            React + Vite + Tailwind UI
+├── backend/             Node.js / Express gateway
+├── ai-service/
+│   ├── app/             FastAPI app: routes, services (RAG, agent, auth, feedback), models
+│   ├── documind_mcp/    MCP server (document + enterprise tools, synthetic data)
+│   ├── scripts/         seed_demo.py, manual MCP smoke scripts
+│   └── tests/
+├── docs/                architecture, demo script, demo documents
+├── docker/              placeholder (no containers yet)
+└── .github/workflows/   placeholder (no CI yet)
+```
+
+## License
+
+MIT - see [LICENSE](LICENSE).

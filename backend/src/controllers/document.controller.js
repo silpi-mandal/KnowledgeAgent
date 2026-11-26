@@ -2,33 +2,22 @@ const {
     getDocuments,
     uploadDocument: sendDocumentToAI,
 } = require("../services/documentService");
+const { respondWithError } = require("../services/aiClient");
+
+function textField(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 async function getAllDocuments(req, res) {
     try {
-        const documents = await getDocuments();
+        const documents = await getDocuments({
+            workspaceId: textField(req.query.workspace_id),
+            authorization: req.headers.authorization,
+        });
 
         res.json(documents);
     } catch (error) {
-        console.error(
-            "Document list request failed:",
-            error.message
-        );
-
-        if (error.status) {
-            return res.status(error.status).json({
-                message: error.message,
-                error: error.details,
-            });
-        }
-
-        if (error.message === "AI service request timed out") {
-            return res.status(504).json({
-                message: error.message,
-            });
-        }
-
-        return res.status(503).json({
-            message: error.message,
-        });
+        return respondWithError(res, error, "Document list request");
     }
 }
 
@@ -40,35 +29,18 @@ async function uploadDocument(req, res) {
             });
         }
 
-        const document = await sendDocumentToAI(req.file);
+        const document = await sendDocumentToAI(req.file, {
+            workspaceId: textField(req.body?.workspace_id),
+            authorization: req.headers.authorization,
+        });
 
         return res.status(201).json(document);
     } catch (error) {
-        console.error(
-            "Document upload request failed:",
-            error.message
-        );
-
-        if (error.status) {
-            return res.status(error.status).json({
-                message: error.message,
-                error: error.details,
-            });
-        }
-
-        if (error.message === "AI service request timed out") {
-            return res.status(504).json({
-                message: error.message,
-            });
-        }
-
-        return res.status(503).json({
-            message: error.message,
-        });
+        return respondWithError(res, error, "Document upload request");
     }
 }
 
 module.exports = {
     getAllDocuments,
-    uploadDocument
+    uploadDocument,
 };

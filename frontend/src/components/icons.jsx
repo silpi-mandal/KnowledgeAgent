@@ -82,3 +82,43 @@ export function MoonIcon({ className }) {
     </svg>
   )
 }
+
+export function ThumbUpIcon({ className, filled = false }) {
+  return (
+    <svg className={className} {...baseProps} fill={filled ? 'currentColor' : 'none'}>
+      <path d="M7 10v11H3V10zM7 10l4-8a2.5 2.5 0 0 1 2.5 2.5V9H19a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 17.6 21H7" />
+    </svg>
+  )
+}
+
+export function ThumbDownIcon({ className, filled = false }) {
+  return (
+    <svg className={className} {...baseProps} fill={filled ? 'currentColor' : 'none'}>
+      <path d="M17 14V3h4v11zM17 14l-4 8a2.5 2.5 0 0 1-2.5-2.5V15H5a2 2 0 0 1-2-2.3l1.4-8A2 2 0 0 1 6.4 3H17" />
+    </svg>
+  )
+}
+
+export function WrenchIcon({ className }) {
+  return (
+    <svg className={className} {...baseProps}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" />
+    </svg>
+  )
+}
+
+export function LogoutIcon({ className }) {
+  return (
+    <svg className={className} {...baseProps}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  )
+}
+
+export function LayersIcon({ className }) {
+  return (
+    <svg className={className} {...baseProps}>
+      <path d="m12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  )
+}

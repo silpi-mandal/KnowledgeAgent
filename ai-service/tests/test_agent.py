@@ -32,7 +32,14 @@ def test_chat_schema_exposes_request_and_response_models() -> None:
     assert "ChatRequest" in schema
     assert "ChatResponse" in schema
     assert "workspace_id" in schema["ChatRequest"]["properties"]
-    assert set(schema["ChatResponse"]["properties"]) == {"answer", "traces", "sources"}
+    assert set(schema["ChatResponse"]["properties"]) == {
+        "answer",
+        "traces",
+        "sources",
+        "answer_id",
+        "answer_confidence",
+        "answer_confidence_level",
+    }
 
 
 def test_list_tools_returns_registered_tools() -> None:

@@ -1,29 +1,13 @@
 const { chatWithAI } = require("../services/aiService");
+const { respondWithError } = require("../services/aiClient");
 
 async function chat(req, res) {
     try {
-        const result = await chatWithAI(req.body);
+        const result = await chatWithAI(req.body, req.headers.authorization);
 
         res.json(result);
     } catch (error) {
-        console.error("AI chat request failed:", error.message);
-
-        if (error.status) {
-            return res.status(error.status).json({
-                message: error.message,
-                error: error.details,
-            });
-        }
-
-        if (error.message === "AI service request timed out") {
-            return res.status(504).json({
-                message: error.message,
-            });
-        }
-
-        return res.status(503).json({
-            message: error.message,
-        });
+        return respondWithError(res, error, "AI chat request");
     }
 }
 

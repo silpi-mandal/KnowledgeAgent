@@ -1,3 +1,5 @@
+> **Historical planning document.** This was the original phase plan for the DocuMind AI base project. For what KnowledgeAgent actually does and how to run it, see the [README](../README.md) and [architecture](architecture.md).
+
 # DocuMind AI — Development Plan
 
 **Current phase: Phase 2 — PDF Document Processing (next)**

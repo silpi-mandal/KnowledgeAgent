@@ -24,7 +24,7 @@ function ChatMessages({ messages, isThinking }) {
             Ask questions about your documents
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            DocuMind AI uses retrieval-augmented generation to answer questions
+            KnowledgeAgent uses retrieval-augmented generation to answer questions
             using your uploaded documents.
           </p>
         </div>

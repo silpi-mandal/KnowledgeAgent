@@ -1,7 +1,13 @@
 import { useRef } from 'react'
-import { CloseIcon, FileIcon, PlusIcon } from './icons'
+import { CloseIcon, FileIcon, LayersIcon, PlusIcon } from './icons'
+import WorkspaceSelector from './WorkspaceSelector'
 
 function DocumentSidebar({
+  workspaces,
+  selectedWorkspaceId,
+  onSelectWorkspace,
+  workspaceSelectDisabled,
+  canUpload,
   documents,
   documentsError,
   selectedDocumentId,
@@ -49,36 +55,45 @@ function DocumentSidebar({
         </button>
       </div>
 
-      <div className="px-4 py-3">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+      <WorkspaceSelector
+        workspaces={workspaces}
+        selectedWorkspaceId={selectedWorkspaceId}
+        onSelect={onSelectWorkspace}
+        disabled={workspaceSelectDisabled}
+      />
 
-        <button
-          type="button"
-          onClick={handleUploadClick}
-          disabled={isUploading}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <PlusIcon className="h-4 w-4" />
+      {canUpload && (
+        <div className="px-4 py-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            onChange={handleFileChange}
+            className="hidden"
+          />
 
-          {isUploading ? 'Uploading...' : 'Upload document'}
-        </button>
+          <button
+            type="button"
+            onClick={handleUploadClick}
+            disabled={isUploading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <PlusIcon className="h-4 w-4" />
 
-        <p className="mt-1.5 text-center text-[11px] text-slate-400 dark:text-slate-500">
-          PDF, CSV, XLSX, XLS only
-        </p>
+            {isUploading ? 'Uploading...' : 'Upload document'}
+          </button>
 
-        {uploadError && (
-          <p className="mt-2 text-center text-xs font-medium text-red-600 dark:text-red-400">
-            {uploadError}
+          <p className="mt-1.5 text-center text-[11px] text-slate-400 dark:text-slate-500">
+            PDF, CSV, XLSX, XLS only
           </p>
-        )}
-      </div>
+
+          {uploadError && (
+            <p className="mt-2 text-center text-xs font-medium text-red-600 dark:text-red-400">
+              {uploadError}
+            </p>
+          )}
+        </div>
+      )}
 
       <ul className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
         {documentsError && (
@@ -87,9 +102,29 @@ function DocumentSidebar({
           </li>
         )}
 
+        {!documentsError && documents.length > 0 && (
+          <li>
+            <button
+              type="button"
+              onClick={() => onSelect(null)}
+              aria-current={selectedDocumentId === null ? 'true' : undefined}
+              className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400 ${
+                selectedDocumentId === null
+                  ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/50 dark:bg-indigo-500/15 dark:text-indigo-300'
+                  : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800'
+              }`}
+            >
+              <LayersIcon className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                All documents ({documents.length})
+              </span>
+            </button>
+          </li>
+        )}
+
         {!documentsError && documents.length === 0 ? (
           <li className="px-2 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-            No documents yet
+            No documents in this workspace
           </li>
         ) : (
           documents.map((document) => {

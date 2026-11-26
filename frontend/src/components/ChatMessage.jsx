@@ -1,4 +1,7 @@
+import ConfidenceBadge from './ConfidenceBadge'
+import FeedbackButtons from './FeedbackButtons'
 import SourceList from './SourceList'
+import ToolActivity from './ToolActivity'
 import { AlertIcon } from './icons'
 
 function ChatMessage({ message }) {
@@ -11,6 +14,10 @@ function ChatMessage({ message }) {
       </div>
     )
   }
+
+  const hasConfidence =
+    !message.error && message.confidence != null && message.confidenceLevel
+  const hasFeedback = !message.error && message.answerId
 
   return (
     <div className="flex gap-3">
@@ -37,8 +44,35 @@ function ChatMessage({ message }) {
           {message.content}
         </div>
 
+        {(hasConfidence || hasFeedback) && (
+          <div className="mt-1.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            {hasConfidence ? (
+              <ConfidenceBadge
+                confidence={message.confidence}
+                level={message.confidenceLevel}
+                prefix="Best source match: "
+              />
+            ) : (
+              <span />
+            )}
+
+            {hasFeedback && <FeedbackButtons answerId={message.answerId} />}
+          </div>
+        )}
+
+        {hasConfidence && message.confidenceLevel === 'low' && (
+          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+            Weak match with your documents. Check the sources before relying on
+            this answer.
+          </p>
+        )}
+
         {!message.error && message.sources?.length > 0 && (
           <SourceList sources={message.sources} />
+        )}
+
+        {!message.error && message.traces?.length > 0 && (
+          <ToolActivity traces={message.traces} />
         )}
       </div>
     </div>

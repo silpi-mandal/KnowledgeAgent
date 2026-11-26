@@ -1,56 +1,31 @@
-# Backend (Node.js / Express) — DocuMind AI
+# Backend (Node.js / Express)
 
-**Status: Phase 0 placeholder — no application code yet.**
+The only API the browser talks to. It is a thin gateway: it validates uploads, forwards the user's `Authorization` header to the FastAPI AI service, and returns the AI service's answers. **All permission decisions (login, roles, workspace access) are made by the AI service**, so there is one place to get them right.
 
-The main application backend and single entry point for the frontend.
-
-## Planned responsibilities
-
-- User registration, login, and JWT authentication.
-- Authorization checks and protected routes.
-- Document metadata (name, owner, size, upload date, indexing status) in MongoDB.
-- File upload handling and forwarding files to the AI service.
-- Chat/conversation history persistence.
-- Proxying question-answering requests to the FastAPI AI service.
-- Application-level APIs consumed by the React frontend.
-
-## Explicitly NOT this service's job
-
-- PDF text extraction, chunking, embeddings, FAISS, retrieval, LLM calls — all belong to `ai-service/`.
-
-## Planned stack
-
-- Node.js (LTS), Express.js
-- MongoDB + Mongoose
-- JWT auth, bcrypt for password hashing
-- Multer (or similar) for uploads
-- Deploy target: Render
-
-## Directory (created from Phase 5 onward)
-
-```
-backend/
-├── src/
-│   ├── config/
-│   ├── controllers/
-│   ├── routes/
-│   ├── middleware/
-│   ├── models/
-│   └── services/        # calls to ai-service
-├── .env.example
-├── package.json
-└── server.js
-```
-
-## Environment
-
-See [`.env.example`](./.env.example). Copy it to `.env` locally; `.env` is git-ignored.
-
-## Development
-
-Nothing to run yet. From Phase 5:
+## Run
 
 ```bash
+cd backend
 npm install
-npm run dev
+copy .env.example .env     # Windows   (cp on macOS/Linux)
+npm run dev                # http://localhost:3000
 ```
+
+## Routes
+
+| Method & path | Forwards to (AI service) | Notes |
+| --- | --- | --- |
+| `GET /health` | - | Health check |
+| `POST /api/auth/login` | `POST /auth/login` | Returns a bearer token |
+| `GET /api/auth/me` | `GET /auth/me` | Current user and role |
+| `GET /api/workspaces` | `GET /workspaces` | Only workspaces the user may access |
+| `GET /api/documents?workspace_id=` | `GET /documents` | Filtered by access |
+| `POST /api/documents/upload` | `POST /documents/upload` | multipart `file` + `workspace_id`; PDF/CSV/XLSX/XLS, max 10 MB; admin only |
+| `POST /api/ai/chat` | `POST /agent/chat` | `{messages, document_ids, workspace_id}` |
+| `POST /api/feedback` | `POST /feedback` | `{answer_id, rating, comment}` |
+
+Errors from the AI service keep their status code (401, 403, 404, 400...). If the AI service is down you get 503; if it takes longer than 30 s you get 504.
+
+## Not implemented here
+
+Creating users or workspaces and reading feedback are admin tasks done directly on the AI service (`http://localhost:8000/docs`) or with `ai-service/scripts/seed_demo.py`. There is no database in this backend.

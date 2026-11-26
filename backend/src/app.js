@@ -4,6 +4,7 @@ const cors = require("cors");
 const healthRoutes = require("./routes/health.routes");
 const aiRoutes = require("./routes/ai.routes")
 const documentRoutes = require("./routes/document.routes")
+const platformRoutes = require("./routes/platform.routes")
 
 const app = express()
 
@@ -25,6 +26,7 @@ app.use(express.json())
 app.use("/", healthRoutes)
 app.use("/api/ai", aiRoutes)
 app.use("/api/documents", documentRoutes)
+app.use("/api", platformRoutes)
 
 
 module.exports = app

@@ -75,3 +75,7 @@ __pycache__/
 venv/
 .pytest_cache/
 ai-service/storage/
+
+# demo documents (synthetic) are allowed in git
+!docs/demo-data/
+!docs/demo-data/*.pdf

@@ -106,6 +106,7 @@ def test_retrieval_uses_rewritten_query_but_answer_uses_original() -> None:
             "document_name": "notes.pdf",
             "page": 2,
             "score": 0.9,
+            "snippet": "RAG content.",
         }
     ]
 
