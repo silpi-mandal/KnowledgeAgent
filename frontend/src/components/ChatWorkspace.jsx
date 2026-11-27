@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../services/http'
 import { GENERIC_ERROR_MESSAGE, sendChatMessage } from '../services/api'
 import { getDocuments, uploadDocument } from '../services/documents'
 import { getWorkspaces } from '../services/workspaces'
+import AdminPanel from './AdminPanel'
 import ChatHeader from './ChatHeader'
 import ChatInput from './ChatInput'
 import ChatMessages from './ChatMessages'
@@ -43,16 +44,35 @@ function ChatWorkspace({ user, onLogout }) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
 
+  const [isAdminOpen, setIsAdminOpen] = useState(false)
+  const closeAdmin = useCallback(() => setIsAdminOpen(false), [])
+
+  // Always the workspace the user is looking at *now*, so a slow response for
+  // a workspace they already left can be recognised and dropped.
+  const selectedWorkspaceRef = useRef(null)
+
   const isAdmin = user.role === 'admin'
 
   async function loadWorkspaces() {
     try {
       const data = await getWorkspaces()
 
+      const currentId = selectedWorkspaceRef.current
+      const stillThere = data.some(
+        (workspace) => workspace.workspace_id === currentId,
+      )
+
+      // The selected workspace was deleted (by an admin): start over.
+      if (currentId && !stillThere) {
+        setSelectedDocumentId(null)
+        setDocuments([])
+        setMessages([])
+      }
+
       setWorkspaces(data)
       setWorkspacesError(null)
       setSelectedWorkspaceId(
-        (currentId) => currentId ?? data[0]?.workspace_id ?? null,
+        stillThere ? currentId : (data[0]?.workspace_id ?? null),
       )
     } catch (error) {
       console.error('Failed to load workspaces:', error)
@@ -66,12 +86,18 @@ function ChatWorkspace({ user, onLogout }) {
     try {
       const data = await getDocuments(workspaceId)
 
+      // The user switched workspace while this request was running.
+      if (selectedWorkspaceRef.current !== workspaceId) return false
+
       setDocuments(data)
       setDocumentsError(null)
 
       return true
     } catch (error) {
       console.error('Failed to load documents:', error)
+
+      if (selectedWorkspaceRef.current !== workspaceId) return false
+
       setDocuments([])
       setDocumentsError('Failed to load documents')
 
@@ -83,6 +109,12 @@ function ChatWorkspace({ user, onLogout }) {
   useEffect(() => {
     loadWorkspaces()
   }, [])
+
+  // Keep the ref in step with the selection (declared before the loader below
+  // so it is already up to date when that effect runs).
+  useEffect(() => {
+    selectedWorkspaceRef.current = selectedWorkspaceId
+  }, [selectedWorkspaceId])
 
   // Reload documents whenever the workspace changes.
   useEffect(() => {
@@ -211,7 +243,17 @@ function ChatWorkspace({ user, onLogout }) {
         onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
         user={user}
         onLogout={onLogout}
+        onOpenAdmin={isAdmin ? () => setIsAdminOpen(true) : undefined}
       />
+
+      {isAdminOpen && (
+        <AdminPanel
+          user={user}
+          workspaces={workspaces}
+          onClose={closeAdmin}
+          onWorkspacesChanged={loadWorkspaces}
+        />
+      )}
 
       <div className="flex min-h-0 flex-1">
         {isSidebarOpen && (

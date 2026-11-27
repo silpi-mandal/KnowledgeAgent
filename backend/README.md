@@ -23,9 +23,18 @@ npm run dev                # http://localhost:3000
 | `POST /api/documents/upload` | `POST /documents/upload` | multipart `file` + `workspace_id`; PDF/CSV/XLSX/XLS, max 10 MB; admin only |
 | `POST /api/ai/chat` | `POST /agent/chat` | `{messages, document_ids, workspace_id}` |
 | `POST /api/feedback` | `POST /feedback` | `{answer_id, rating, comment}` |
+| `GET /api/feedback`, `GET /api/feedback/summary` | same paths | Admin only; `rating` and `limit` query parameters are forwarded |
+| `POST /api/workspaces`, `DELETE /api/workspaces/:id` | same paths | Admin only |
+| `GET/POST /api/users`, `PUT /api/users/:name/workspaces`, `PUT /api/users/:name/password`, `DELETE /api/users/:name` | same paths | Admin only |
 
-Errors from the AI service keep their status code (401, 403, 404, 400...). If the AI service is down you get 503; if it takes longer than 30 s you get 504.
+Errors from the AI service keep their status code (401, 403, 404, 429, 400...). A 204 (deletes, password reset) is passed through as 204. If the AI service is down you get 503; if it takes longer than `AI_TIMEOUT_MS` (default 60000) you get 504. Path segments from the browser are re-encoded before they are forwarded, so a crafted name cannot reach a different AI service route.
 
-## Not implemented here
+## Tests
 
-Creating users or workspaces and reading feedback are admin tasks done directly on the AI service (`http://localhost:8000/docs`) or with `ai-service/scripts/seed_demo.py`. There is no database in this backend.
+```bash
+npm test      # 14 tests, Node's built-in runner, no extra packages
+```
+
+They run the real Express app against a stub AI service and check header forwarding, status-code and 204 pass-through, 503/504 handling, upload validation, the admin routes and path-segment encoding.
+
+There is no database in this backend.

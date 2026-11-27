@@ -11,7 +11,8 @@ Built on the DocuMind AI codebase as a reference, then extended with workspaces,
 | Document Q&A (RAG) | Upload PDF, CSV, XLSX or XLS. Text is chunked, embedded and stored in FAISS; the agent retrieves the closest passages and answers from them. |
 | Workspaces | Documents are grouped (HR, IT, Policies...). A chat searches one workspace or one document. |
 | MCP tools | The agent calls tools served by an MCP server: document search and info, `lookup_ticket`, `search_tickets`, `find_employee`, `send_notification` (mock). |
-| Login and roles | `admin` and `employee`. Employees only see workspaces assigned to them. Notifications are admin-only. |
+| Login and roles | `admin` and `employee`. Employees only see workspaces assigned to them. Notifications are admin-only; ticket results are limited to the employee's own departments. Repeated wrong passwords lock the account for 15 minutes. |
+| Admin panel | Admins manage workspaces, users (create, grant access, reset password, delete) and read feedback from the **Admin** button in the header. |
 | Citations and confidence | Every answer lists document, page, an expandable snippet and a match score. |
 | Feedback | Thumbs up/down with an optional comment; admins can read ratings and a summary. |
 | Tool activity | Each answer can show which tools the agent called, their arguments and result. |
@@ -105,9 +106,13 @@ This creates the `hr` and `it` workspaces, two employees (`alice` -> HR, `bob` -
 | Upload documents, create/delete workspaces | yes | no |
 | Manage users and workspace access | yes | no |
 | Read feedback and summary | yes | no |
+| Admin panel in the UI | yes | no |
+| Ticket tools (`lookup_ticket`, `search_tickets`) | all tickets | only tickets whose department matches one of their workspaces |
 | `send_notification` tool | yes | hidden from the model and blocked |
 
-There is no admin screen for creating users or workspaces. Use `scripts/seed_demo.py` or the AI service's Swagger page (`http://localhost:8000/docs`, click **Authorize** and paste a token from `POST /auth/login`).
+Admins manage everything from the **Admin** panel in the UI. The same actions are available through the AI service's Swagger page (`http://localhost:8000/docs`, click **Authorize** and paste a token from `POST /auth/login`), and `scripts/seed_demo.py` creates a ready-made demo setup.
+
+**Ticket scope rule:** a ticket belongs to a department (`IT`, `HR`, `Finance`); an employee sees it only if one of their workspace ids matches that department (case-insensitive), so an employee with only the `hr` workspace cannot see `IT-1001`. A ticket they may not see looks exactly like one that does not exist. The employee directory is company-wide on purpose (you need it to find who to contact).
 
 ## API overview
 
@@ -125,28 +130,31 @@ The browser uses the Node routes listed in [`backend/README.md`](backend/README.
 | `GET /agent/tools` | signed in | Tools available to your role |
 | `POST /feedback` | signed in | Rate an answer you received |
 | `GET /feedback`, `GET /feedback/summary` | admin | Read ratings |
-| `GET/POST /users`, `PUT /users/{name}/workspaces`, `DELETE /users/{name}` | admin | User management |
+| `GET/POST /users`, `PUT /users/{name}/workspaces`, `PUT /users/{name}/password`, `DELETE /users/{name}` | admin | User management. A password reset signs that user out everywhere. |
 
-A workspace, document or answer you are not allowed to touch returns **404**, the same as one that does not exist.
+A workspace, document or answer you are not allowed to touch returns **404**, the same as one that does not exist. `POST /auth/login` returns **429** with a `Retry-After` header after 5 wrong passwords for the same username within 15 minutes.
 
 ## Testing
 
 ```bash
-cd ai-service && pytest               # 147 tests: RAG, agent, MCP tools, auth, workspaces, feedback
+cd ai-service && pytest               # 169 tests: RAG, agent, MCP tools, auth, throttling, workspaces, tickets, feedback
+cd backend && npm test                # 14 tests: the Node gateway against a stub AI service
 cd frontend && npm run lint && npm run build
 ```
 
 - The Python tests use fake embeddings and a mocked LLM, so they need no API key and no network. One group starts the real MCP server over stdio.
-- The Node backend has no automated tests yet (`npm test` is a placeholder). It was checked by hand against the real AI service.
+- The Node tests use Node's built-in runner and a stub AI service, so they need no extra packages.
+- The browser flows (login, roles, admin panel, session revocation, lockout, retry screen, mobile layout) were checked in a real browser against the real Node and AI services, with the chat answer scripted because no LLM key was available. That browser script is not part of the repository.
 - Chat answers with a real LLM have to be checked manually; rehearse the demo once with your own key.
 
 ## Security notes and known limits
 
-- Passwords are stored as salted scrypt hashes; tokens are signed, expire after `TOKEN_EXPIRE_MINUTES` (default 60), and role and access are re-checked on every request, so deleting a user takes effect immediately.
+- Passwords are stored as salted scrypt hashes; tokens are signed, expire after `TOKEN_EXPIRE_MINUTES` (default 60), and role and access are re-checked on every request, so deleting a user takes effect immediately. An admin password reset also invalidates that user's existing tokens.
+- Login lockout: 5 wrong passwords for a username within 15 minutes locks it for 15 minutes (the correct password is refused too, and unknown usernames are counted the same way, so it does not reveal which accounts exist). The state is in memory, so it resets when the AI service restarts, and someone who knows a username can lock that account out for a while.
 - The token lives in browser `sessionStorage` (gone when the tab closes). A script injected into the page could read it; the UI never renders server text as HTML.
 - `AUTH_ENABLED=false` switches login off and makes everyone an admin. Local development only.
-- **Not done:** login rate limiting (AI service and Node), password reset, early token revocation, HTTPS (use it if you ever deploy), an admin UI.
-- **Tool scope:** the ticket and employee-directory tools are *not* scoped by workspace, so any signed-in employee can ask about any ticket or person. The data is synthetic; add scoping before using real data.
+- **Not done:** a per-IP rate limit (Node and AI service), self-service password change or email reset (only admins can reset), revoking a single token before it expires (a password reset revokes all of that user's tokens; signing out only discards the token in the browser), HTTPS (use it if you ever deploy).
+- **Tool scope:** tickets are filtered by department as described under Roles, but the employee directory is open to every signed-in user and `send_notification` is still a mock on synthetic data. Re-check the scoping rules before using real data.
 - `send_notification` is a **mock**: it validates the recipient and appends to `ai-service/storage/outbox.jsonl`. No email is sent.
 - To support feedback, each question and answer is stored in `ai-service/storage/answers/` (readable via the API by admins only). Delete that folder if you do not want it kept.
 - Uploaded content and answers are processed by the LLM provider you configure. Do not upload confidential files to a free-tier provider.

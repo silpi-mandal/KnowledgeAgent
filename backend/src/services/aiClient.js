@@ -1,6 +1,16 @@
 const axios = require("axios");
 
-const DEFAULT_TIMEOUT_MS = 30000;
+// Chat runs an agent loop (several LLM calls), so allow a minute by default.
+// Override with AI_TIMEOUT_MS in backend/.env.
+const DEFAULT_TIMEOUT_MS = 60000;
+
+function defaultTimeout() {
+    const configured = Number(process.env.AI_TIMEOUT_MS);
+
+    return Number.isFinite(configured) && configured > 0
+        ? configured
+        : DEFAULT_TIMEOUT_MS;
+}
 
 /**
  * Calls the FastAPI AI service on behalf of the signed-in user.
@@ -19,7 +29,7 @@ async function callAI({
     params,
     authorization,
     headers = {},
-    timeout = DEFAULT_TIMEOUT_MS,
+    timeout = defaultTimeout(),
 }) {
     const requestHeaders = { ...headers };
 

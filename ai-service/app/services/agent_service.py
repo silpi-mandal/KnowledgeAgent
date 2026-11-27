@@ -40,6 +40,9 @@ TOOLS = [
 # Tools only admins may use (employees never see or run them).
 ADMIN_ONLY_TOOLS = {"send_notification_tool"}
 
+# Tools that return tickets; employees only see their own departments' tickets.
+TICKET_TOOLS = {"lookup_ticket_tool", "search_tickets_tool"}
+
 TOOLS_BY_NAME = {
     tool.name: tool
     for tool in TOOLS
@@ -93,6 +96,44 @@ def extract_error(
     return None
 
 
+def scope_ticket_result(
+    tool_name: str,
+    tool_args: dict,
+    result: object,
+    user_role: str,
+    allowed_workspaces: list[str] | None,
+) -> object:
+    """Employees only see tickets whose department matches one of their workspaces.
+
+    Departments are matched to workspace ids ("IT" ticket <-> "it" workspace).
+    A forbidden ticket looks exactly like a missing one. The employee directory
+    stays company-wide on purpose: you need it to find who to contact.
+    """
+    if user_role == "admin" or tool_name not in TICKET_TOOLS:
+        return result
+
+    allowed = {workspace.lower() for workspace in allowed_workspaces or []}
+
+    def visible(ticket: object) -> bool:
+        return (
+            isinstance(ticket, dict)
+            and str(ticket.get("department", "")).lower() in allowed
+        )
+
+    if tool_name == "lookup_ticket_tool":
+        if isinstance(result, dict) and "error" not in result and not visible(result):
+            return {
+                "error": "Ticket not found.",
+                "ticket_id": tool_args.get("ticket_id"),
+            }
+        return result
+
+    if isinstance(result, list):
+        return [ticket for ticket in result if visible(ticket)]
+
+    return result
+
+
 def history_to_messages(
     history: list[ChatMessage] | None,
 ) -> list[AnyMessage]:
@@ -127,6 +168,7 @@ async def run_agent(
     max_steps: int = 5,
     history: list[ChatMessage] | None = None,
     user_role: str = "employee",
+    allowed_workspaces: list[str] | None = None,
 ) -> dict:
 
     llm = create_llm()
@@ -305,6 +347,13 @@ async def run_agent(
                 ]
 
             if error is None:
+                result = scope_ticket_result(
+                    tool_name,
+                    tool_args,
+                    result,
+                    user_role,
+                    allowed_workspaces,
+                )
                 error = extract_error(result)
 
             if tool_name == "search_document_tool":

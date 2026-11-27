@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import CurrentUser, require_admin
-from app.models.auth import UserCreate, UserResponse, WorkspaceAccessUpdate
+from app.models.auth import (
+    PasswordReset,
+    UserCreate,
+    UserResponse,
+    WorkspaceAccessUpdate,
+)
 from app.services import auth_service, workspace_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -61,6 +66,20 @@ def update_workspaces(
         raise HTTPException(status_code=404, detail="User not found.") from None
 
     return UserResponse(**user)
+
+
+@router.put("/{username}/password", status_code=204)
+def reset_password(
+    username: str,
+    payload: PasswordReset,
+    _: CurrentUser = Depends(require_admin),
+) -> None:
+    """Set a new password. The user's existing sessions stop working immediately."""
+
+    try:
+        auth_service.reset_password(username, payload.password)
+    except auth_service.UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found.") from None
 
 
 @router.delete("/{username}", status_code=204)

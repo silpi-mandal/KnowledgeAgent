@@ -17,6 +17,8 @@ npm run build
 ## How it behaves
 
 - **Login:** the bearer token is kept in `sessionStorage` (cleared when the tab closes). A 401 on a signed-in request sends the user back to the sign-in page with a "session expired" notice. Signing out discards all chat state.
-- **Roles:** the Upload button is shown to admins only. Employees see only the workspaces assigned to them.
+- **Roles:** the Upload button and the **Admin** button are shown to admins only. Employees see only the workspaces assigned to them.
+- **Admin panel:** workspaces (create, delete empty ones), users (create, grant workspace access, reset password, delete) and feedback (summary, filter, rated question and answer). The server enforces admin-only access; hiding the button is only a convenience.
+- **Connection problems:** if the server cannot be reached on reload, you stay signed in and see a "Can't reach the server" screen with **Try again** and **Sign out**. Only a rejected token ends the session.
 - **Answers:** each source shows document, page, a confidence badge and an expandable snippet. The badge says how closely a passage matches the question; it does **not** mean the answer is correct.
 - **Errors:** messages for 4xx responses are shown to the user; server (5xx) details never are.

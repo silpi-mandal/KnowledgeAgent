@@ -89,6 +89,8 @@ export async function apiFetch(path, { method = 'GET', json, formData } = {}) {
 
   let data
 
+  if (response.ok && response.status === 204) return null
+
   try {
     data = await response.json()
   } catch {

@@ -1,6 +1,7 @@
 import pytest
 
 from app.core.config import get_settings
+from app.services import login_throttle
 
 
 @pytest.fixture(autouse=True)
@@ -13,5 +14,7 @@ def _fake_llm_credentials(monkeypatch, tmp_path):
     # Keep tests from ever writing into the real storage folder.
     monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "default-storage"))
     get_settings.cache_clear()
+    login_throttle.reset_all()
     yield
     get_settings.cache_clear()
+    login_throttle.reset_all()

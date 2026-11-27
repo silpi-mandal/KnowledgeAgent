@@ -23,6 +23,10 @@ class UserCreate(BaseModel):
     workspaces: list[str] = Field(default_factory=list)
 
 
+class PasswordReset(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+
+
 class WorkspaceAccessUpdate(BaseModel):
     workspaces: list[str]
 

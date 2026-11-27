@@ -122,3 +122,11 @@ export function LayersIcon({ className }) {
     </svg>
   )
 }
+
+export function ShieldIcon({ className }) {
+  return (
+    <svg className={className} {...baseProps}>
+      <path d="M12 3l8 3v6c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V6z" />
+    </svg>
+  )
+}

@@ -123,6 +123,7 @@ async def chat(
             max_steps=request.max_steps,
             history=history,
             user_role=user.role,
+            allowed_workspaces=user.workspaces,
         )
 
     except Exception as exc:

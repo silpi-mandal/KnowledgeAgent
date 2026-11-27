@@ -249,6 +249,7 @@ def test_employee_chat_limited_to_allowed_workspaces(org):
     assert ok.status_code == 200
     assert fake.call_args.kwargs["document_ids"] == ["d-hr"]
     assert fake.call_args.kwargs["user_role"] == "employee"
+    assert fake.call_args.kwargs["allowed_workspaces"] == ["hr"]
 
     assert chat(org.alice, workspace_id="it")[0].status_code == 404
     assert chat(org.alice, document_ids=["d-it"])[0].status_code == 404

@@ -174,6 +174,18 @@ def delete_user(username: str) -> None:
     _save(users)
 
 
+def reset_password(username: str, new_password: str) -> None:
+    """Set a new password and invalidate every token issued before now."""
+    users = _load()
+    name = username.strip().lower()
+    if name not in users:
+        raise UserNotFoundError(name)
+
+    users[name]["password_hash"] = hash_password(new_password)
+    users[name]["token_version"] = users[name].get("token_version", 0) + 1
+    _save(users)
+
+
 def count_admins() -> int:
     return sum(1 for record in _load().values() if record["role"] == "admin")
 
@@ -214,19 +226,32 @@ def _secret() -> str:
     return secret
 
 
-def create_access_token(username: str) -> tuple[str, int]:
+def create_access_token(username: str, token_version: int = 0) -> tuple[str, int]:
     minutes = get_settings().token_expire_minutes
     expires = datetime.now(timezone.utc) + timedelta(minutes=minutes)
-    token = jwt.encode({"sub": username, "exp": expires}, _secret(), algorithm=ALGORITHM)
+    token = jwt.encode(
+        {"sub": username, "ver": token_version, "exp": expires},
+        _secret(),
+        algorithm=ALGORITHM,
+    )
     return token, minutes * 60
 
 
-def decode_token(token: str) -> str | None:
+def decode_token(token: str) -> tuple[str, int] | None:
+    """Return (username, token_version), or None if the token is invalid or expired."""
     try:
         payload = jwt.decode(
-            token, _secret(), algorithms=[ALGORITHM], options={"require": ["exp", "sub"]}
+            token,
+            _secret(),
+            algorithms=[ALGORITHM],
+            options={"require": ["exp", "sub", "ver"]},
         )
     except jwt.PyJWTError:
         return None
-    subject = payload.get("sub")
-    return subject if isinstance(subject, str) else None
+
+    subject, version = payload.get("sub"), payload.get("ver")
+
+    if not isinstance(subject, str) or not isinstance(version, int):
+        return None
+
+    return subject, version

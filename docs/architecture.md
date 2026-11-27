@@ -36,7 +36,9 @@ There is no database. Users, answers and ratings are written atomically (temp fi
 - Two roles. Admins reach every workspace; employees reach the workspaces listed on their user record.
 - Role and workspace access are read from the user store on every request, never trusted from the token.
 - Resources the caller may not access return 404, the same as missing ones, so names and ids cannot be probed.
-- Tools: `send_notification_tool` is admin-only (removed from the model's tool list and blocked at execution). Ticket and directory tools are not scoped by workspace (see README, known limits).
+- Tools: `send_notification_tool` is admin-only (removed from the model's tool list and blocked at execution). Ticket results are filtered on the server for employees by matching the ticket's department to their workspace ids; a hidden ticket looks the same as a missing one. The employee directory is company-wide on purpose.
+- Tokens carry a version number. An admin password reset increments it, so every older token for that user stops working immediately.
+- Login is throttled per username (5 failures in 15 minutes locks it for 15 minutes), in memory only.
 
 ## Confidence
 

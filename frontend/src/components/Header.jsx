@@ -1,7 +1,13 @@
 import useTheme from '../hooks/useTheme'
-import { LogoutIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
+import {
+  LogoutIcon,
+  MenuIcon,
+  MoonIcon,
+  ShieldIcon,
+  SunIcon,
+} from './icons'
 
-function Header({ onToggleSidebar, user, onLogout }) {
+function Header({ onToggleSidebar, user, onLogout, onOpenAdmin }) {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -57,6 +63,18 @@ function Header({ onToggleSidebar, user, onLogout }) {
               {user.role}
             </span>
           </span>
+        )}
+
+        {onOpenAdmin && (
+          <button
+            type="button"
+            onClick={onOpenAdmin}
+            aria-label="Admin"
+            className="mr-1 flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:focus-visible:outline-indigo-400"
+          >
+            <ShieldIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Admin</span>
+          </button>
         )}
 
         <button

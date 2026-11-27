@@ -43,16 +43,17 @@ def get_current_user(
         raise _unauthorized()
 
     try:
-        username = auth_service.decode_token(credentials.credentials)
+        claims = auth_service.decode_token(credentials.credentials)
     except auth_service.AuthNotConfiguredError:
         raise HTTPException(
             status_code=503,
             detail="Authentication is not configured on the server.",
         ) from None
 
-    record = auth_service.get_user(username) if username else None
+    record = auth_service.get_user(claims[0]) if claims else None
 
-    if record is None:
+    # A token from before a password reset carries an older version: reject it.
+    if record is None or record.get("token_version", 0) != claims[1]:
         raise _unauthorized()
 
     return CurrentUser(
